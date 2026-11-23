@@ -67,6 +67,7 @@ async def main():
         }""")
         for _ in range(3): await pg.evaluate('window.__step()')
         await pg.evaluate('__dir.start()')
+        if '--nocap' in sys.argv: await pg.add_style_tag(content='#vcap,#vfinger{display:none!important}')
         total = int(PLAY_END * FPS)
         ff = None
         if not stills:
@@ -76,7 +77,7 @@ async def main():
         for i in range(total):
             await pg.evaluate(f'__dir.frame({i})')
             if stills:
-                if i in want: await pg.screenshot(path=f'/tmp/vf_{i/FPS:05.2f}.jpg', type='jpeg', quality=85)
+                if i in want: await pg.screenshot(path=f'/tmp/vf_{i/FPS:05.2f}.jpg', type='jpeg', quality=94)
                 if i > max(want): break
             else:
                 ff.stdin.write(await pg.screenshot(type='jpeg', quality=92))

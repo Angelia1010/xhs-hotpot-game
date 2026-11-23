@@ -5,3 +5,5 @@ dist/
 huoguoju.zip
 publish/video/
 publish/*.mp4
+tools/note/vf_*.jpg
+publish/note/
