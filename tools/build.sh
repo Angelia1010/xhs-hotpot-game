@@ -7,7 +7,7 @@ cp index.html style.css dist/
 cp js/*.js dist/js/
 cp img/food/*.webp dist/img/food/
 cp img/plate/*.webp dist/img/plate/
-for n in pot table card_bg chopsticks_closed hand_laowang hand_boss hand_friend; do cp img/scene/$n.webp dist/img/scene/; done
+for n in pot pot_yuanyang table card_bg chopsticks_closed hand_laowang hand_boss hand_friend; do cp img/scene/$n.webp dist/img/scene/; done
 rm -f huoguoju.zip
 (cd dist && python3 -c "
 import zipfile, os

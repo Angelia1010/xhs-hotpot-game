@@ -57,7 +57,7 @@ var HP = window.HP = window.HP || {};
     this.game = game;
     this.bubbles = []; this.rings = []; this.drops = []; this.steam = [];
     this.texts = []; this.glints = [];
-    this.bubbleAcc = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    this.bubbleAcc = [];
     this.steamAcc = 0;
     this.quality = 1;      // 低端机自动降到 0.6
     for (var i = 0; i < 46; i++) this.glints.push(this.randomGlint());
@@ -70,7 +70,7 @@ var HP = window.HP = window.HP || {};
   };
 
   FX.prototype.spawnBubble = function (cell, big) {
-    var p = this.game.randomSoupPoint(cell), heat = HP.HEAT[cell] * this.game.heatMul;
+    var p = this.game.randomSoupPoint(cell), heat = this.game.heatOf(cell) * this.game.heatMul;
     var max = (big ? rand(7, 12) : rand(2.2, 5.5) * (0.7 + heat * 0.35));
     this.bubbles.push({ nx: p.nx, ny: p.ny, r: 0, max: max, t: 0, life: rand(0.35, 0.9) / (0.6 + heat * 0.4), cell: cell });
   };
@@ -95,9 +95,10 @@ var HP = window.HP = window.HP || {};
     var g = this.game, i, b, q = this.quality;
 
     // 1. 按格子火力生成气泡：中心格翻滚，四角只是微微冒泡
-    for (i = 0; i < 9; i++) {
-      var heat = HP.HEAT[i] * g.heatMul;
-      this.bubbleAcc[i] += dt * (heat * heat * 9) * q;
+    for (i = 0; i < g.zones.length; i++) {
+      var heat = g.heatOf(i) * g.heatMul;
+      // 冒泡数量按分区面积折算：九宫格每格约 1/9，鸳鸯锅每边约 1/2
+      this.bubbleAcc[i] = (this.bubbleAcc[i] || 0) + dt * (heat * heat * 81 * g.zones[i].share) * q;
       while (this.bubbleAcc[i] > 1) {
         this.bubbleAcc[i] -= 1;
         this.spawnBubble(i, Math.random() < 0.04 * heat);
@@ -138,11 +139,11 @@ var HP = window.HP = window.HP || {};
     this.steamAcc += dt * 7 * q * (0.4 + g.heatMul * 0.6);
     while (this.steamAcc > 1) {
       this.steamAcc -= 1;
-      var cell = Math.random() < 0.45 ? 4 : Math.floor(rand(0, 9));
+      var cell = g.pickZone(function (k) { return g.heatOf(k) * g.heatOf(k); });
       var p = g.randomSoupPoint(cell);
       var s = g.toScreen(p.nx, p.ny);
       this.steam.push({ x: s.x, y: s.y, r: rand(18, 34) * g.unit, t: 0, life: rand(2.6, 4.2),
-        vy: -rand(22, 40) * g.unit, sway: rand(8, 20) * g.unit, ph: rand(0, 6.28), a: rand(0.07, 0.14) * (0.6 + HP.HEAT[cell] * 0.4) });
+        vy: -rand(22, 40) * g.unit, sway: rand(8, 20) * g.unit, ph: rand(0, 6.28), a: rand(0.07, 0.14) * (0.6 + g.heatOf(cell) * 0.4) });
     }
     for (i = this.steam.length - 1; i >= 0; i--) {
       b = this.steam[i]; b.t += dt;

@@ -1,34 +1,67 @@
 /* 游戏数值与素材配置。改数值只需要动这个文件。 */
 var HP = window.HP = window.HP || {};
 
-/* 锅图上的汤面几何（相对锅图宽高的比例坐标） */
-HP.POT = {
-  cx: 0.497, cy: 0.503,       // 汤面椭圆中心
-  rx: 0.356, ry: 0.366,       // 汤面椭圆半径
-  vx: [0.366, 0.625],         // 两条竖隔板中心
-  hy: [0.371, 0.615],         // 两条横隔板中心
-  half: 0.013                 // 隔板半宽
+/* 锅底：汤面椭圆 + 分区。分区可以是九宫格的矩形，也可以是鸳鸯锅被 S 形隔板分开的两半。
+   heat 火力倍率；mul 得分倍率；tint 菜泡在汤里时盖的颜色 */
+HP.POTS = {
+  jiugong: {
+    name: '九宫格', img: 'pot', ell: { cx: 0.497, cy: 0.503, rx: 0.356, ry: 0.366 },
+    kind: 'grid', vx: [0.366, 0.625], hy: [0.371, 0.615], half: 0.013,
+    heat: [0.6, 1.0, 0.6, 1.0, 1.5, 1.0, 0.6, 1.0, 0.6],
+    mul: [1, 1, 1, 1, 1, 1, 1, 1, 1],
+    tint: ['120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2'],
+    labels: [[4, '火最大', '#ffd35c'], [0, '火小', '#9fd8ff'], [2, '火小', '#9fd8ff'], [6, '火小', '#9fd8ff'], [8, '火小', '#9fd8ff']],
+    center: [4], corners: [0, 2, 6, 8], edges: [0, 2, 6, 8]
+  },
+  yuanyang: {
+    name: '鸳鸯锅', img: 'pot_yuanyang', ell: { cx: 0.495, cy: 0.5, rx: 0.352, ry: 0.372 },
+    kind: 'split', half: 0.016,
+    // S 形隔板中线：[y, x]（相对锅图）
+    divider: [[0.100, 0.542], [0.146, 0.518], [0.195, 0.483], [0.244, 0.464], [0.293, 0.457], [0.342, 0.464], [0.391, 0.483],
+              [0.439, 0.508], [0.488, 0.532], [0.537, 0.547], [0.586, 0.550], [0.635, 0.542], [0.684, 0.525], [0.732, 0.500],
+              [0.781, 0.477], [0.830, 0.454], [0.880, 0.437], [0.900, 0.430]],
+    heat: [1.25, 0.75], mul: [1, 1.3], tint: ['120,8,2', '150,118,40'],
+    labels: [[0, '红汤 · 熟得快', '#ffd35c'], [1, '清汤 · 慢但分 ×1.3', '#ffe9b0']],
+    center: [0], corners: [1], edges: [0, 1], unlock: 1500
+  }
 };
-
-/* 九宫格火力：中心最旺，四角最弱 */
-HP.HEAT = [0.6, 1.0, 0.6,
-           1.0, 1.5, 1.0,
-           0.6, 1.0, 0.6];
+HP.POT_ORDER = ['jiugong', 'yuanyang'];
 
 /* 食材：a~b 为完美窗口（泡在汤里的秒数 × 火力），size 为相对锅宽的显示尺寸
    mode: 'drop' 丢进锅里煮；'swish' 按住在锅里涮，松手捞起
-   dips: 毛肚的「七上八下」次数区间 */
+   veg: 素菜（算荤素搭配）；unlock: 解锁价格（没有就是初始菜）
+   dips: 七上八下次数；sinker: 生的沉底、熟了浮起；special: 特殊玩法；tip: 第一次下锅的提示 */
 HP.FOODS = {
-  luncheon:      { name: '午餐肉', mode: 'drop',  a: 5,  b: 12, size: 0.085, price: 8,  depth: 0.12 },
-  potato:        { name: '土豆片', mode: 'drop',  a: 8,  b: 15, size: 0.085, price: 6,  depth: 0.12 },
-  beef:          { name: '肥牛',   mode: 'swish', a: 4,  b: 6.5, size: 0.095, price: 15, depth: 0.15 },
-  duckintestine: { name: '鸭肠',   mode: 'swish', a: 3,  b: 5,  size: 0.115, price: 18, depth: 0.10, unlock: 300 },
-  maodu:         { name: '毛肚',   mode: 'swish', a: 4,  b: 10,  size: 0.105, price: 25, depth: 0.10, dips: [7, 8] },
-  shrimp:        { name: '虾滑',   mode: 'drop',  a: 6,  b: 9,  size: 0.075, price: 20, depth: 0.0, sinker: true },
-  huanghou:      { name: '黄喉',   mode: 'drop',  a: 8,  b: 12, size: 0.110, price: 22, depth: 0.12, unlock: 500 },
-  duckblood:     { name: '鸭血',   mode: 'drop',  a: 15, b: 22, size: 0.080, price: 12, depth: 0.30 }
+  beef:          { name: '肥牛',     mode: 'swish', a: 4,  b: 6.5, size: 0.095, price: 15, depth: 0.15 },
+  tenderbeef:    { name: '嫩牛肉',   mode: 'swish', a: 3,  b: 5,   size: 0.100, price: 18, depth: 0.15, unlock: 600 },
+  maodu:         { name: '毛肚',     mode: 'swish', a: 4,  b: 10,  size: 0.105, price: 25, depth: 0.10, dips: [7, 8] },
+  strawberry_maodu: { name: '草莓毛肚', mode: 'swish', a: 4, b: 10, size: 0.100, price: 30, depth: 0.10, dips: [7, 8], unlock: 2000,
+                   special: 'strawberry', tip: '网红梗菜：照样七上八下，吃完川渝人会沉默' },
+  duckintestine: { name: '鸭肠',     mode: 'swish', a: 3,  b: 5,   size: 0.115, price: 18, depth: 0.10, unlock: 300 },
+  goose:         { name: '鹅肠',     mode: 'swish', a: 3.5, b: 5.5, size: 0.115, price: 22, depth: 0.10, unlock: 600 },
+  kidney:        { name: '腰片',     mode: 'swish', a: 4,  b: 6.5, size: 0.100, price: 20, depth: 0.12, unlock: 800 },
+  huanghou:      { name: '黄喉',     mode: 'drop',  a: 8,  b: 12,  size: 0.110, price: 22, depth: 0.12, unlock: 500 },
+  shrimp:        { name: '虾滑',     mode: 'drop',  a: 6,  b: 9,   size: 0.075, price: 20, depth: 0.0, sinker: true },
+  beefball:      { name: '牛肉丸',   mode: 'drop',  a: 7,  b: 11,  size: 0.075, price: 16, depth: 0.0, sinker: true, unlock: 600 },
+  duckblood:     { name: '鸭血',     mode: 'drop',  a: 15, b: 22,  size: 0.080, price: 12, depth: 0.30 },
+  luncheon:      { name: '午餐肉',   mode: 'drop',  a: 5,  b: 12,  size: 0.085, price: 8,  depth: 0.12 },
+  tofu:          { name: '冻豆腐',   mode: 'drop',  a: 8,  b: 16,  size: 0.085, price: 8,  depth: 0.25, veg: true, unlock: 400 },
+  potato:        { name: '土豆片',   mode: 'drop',  a: 8,  b: 15,  size: 0.085, price: 6,  depth: 0.12, veg: true },
+  lotus:         { name: '藕片',     mode: 'drop',  a: 6,  b: 12,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 400 },
+  lettuce:       { name: '生菜',     mode: 'swish', a: 1,  b: 2.5, size: 0.100, price: 5,  depth: 0.10, veg: true, tip: '生菜烫一下就好，一不留神就蔫了' },
+  gongcai:       { name: '贡菜',     mode: 'swish', a: 2,  b: 4,   size: 0.100, price: 8,  depth: 0.10, veg: true, unlock: 300 },
+  napa:          { name: '娃娃菜',   mode: 'drop',  a: 9,  b: 18,  size: 0.090, price: 6,  depth: 0.15, veg: true },
+  enoki:         { name: '金针菇',   mode: 'drop',  a: 5,  b: 10,  size: 0.090, price: 8,  depth: 0.12, veg: true, unlock: 300,
+                   special: 'tangle', tip: '金针菇缠成一团，要点两下才夹得起来' },
+  shiitake:      { name: '香菇',     mode: 'drop',  a: 7,  b: 13,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 400 },
+  wintermelon:   { name: '冬瓜',     mode: 'drop',  a: 14, b: 24,  size: 0.085, price: 6,  depth: 0.15, veg: true, unlock: 300, tip: '冬瓜最慢，煮到透明再捞' },
+  jianshouqing:  { name: '见手青',   mode: 'drop',  a: 10, b: 16,  size: 0.085, price: 30, depth: 0.12, veg: true, unlock: 2000,
+                   special: 'trip', tip: '见手青一定要煮熟！没熟就吃会「看见小人」' }
 };
-HP.FOOD_ORDER = ['beef', 'maodu', 'duckintestine', 'shrimp', 'huanghou', 'duckblood', 'luncheon', 'potato'];
+HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
+  'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
+  'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
+HP.BALANCE_BONUS = 80;        // 一局荤素各吃 3 块以上的加分
 
 /* 同桌 NPC：手的素材、从哪一侧伸进来、筷子尖在素材里的位置 */
 HP.NPCS = [
@@ -83,6 +116,6 @@ HP.dayKey = function (d) {
 };
 
 HP.ASSETS = {
-  scene: ['pot', 'table', 'card_bg', 'chopsticks_closed', 'hand_laowang', 'hand_boss', 'hand_friend'],
+  scene: ['pot', 'pot_yuanyang', 'table', 'card_bg', 'chopsticks_closed', 'hand_laowang', 'hand_boss', 'hand_friend'],
   food: HP.FOOD_ORDER
 };

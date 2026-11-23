@@ -21,6 +21,10 @@ var HP = window.HP = window.HP || {};
     { id: 'score_1000', name: '千分食客', desc: '一局拿到 1000 分', coins: 100, test: function (t, s) { return s.score >= 1000; } },
     { id: 'score_2000', name: '火锅之神', desc: '一局拿到 2000 分', coins: 300, test: function (t, s) { return s.score >= 2000; } },
     { id: 'streak_7', name: '一周七顿', desc: '连续 7 天吃火锅', coins: 300, test: function (t, s, p) { return p.streak.n >= 7; } },
+    { id: 'balanced', name: '荤素搭配', desc: '一局荤素各吃 5 块以上', coins: 100, test: function (t, s) { return s.veg >= 5 && s.meat >= 5; } },
+    { id: 'dark_cuisine', name: '黑暗料理王', desc: '一局吃掉 3 个草莓毛肚', coins: 150, test: function (t, s) { return s.strawberry >= 3; } },
+    { id: 'little_people', name: '看见小人', desc: '吃了一口没煮熟的见手青', coins: 50, test: function (t, s) { return s.trip >= 1; } },
+    { id: 'yuanyang', name: '两开花', desc: '解锁鸳鸯锅', coins: 100, test: function (t, s, p) { return p.pots.indexOf('yuanyang') >= 0; } },
     { id: 'collector', name: '菜单全开', desc: '解锁全部菜品', coins: 200, test: function (t, s, p) { return HP.FOOD_ORDER.every(function (id) { return p.unlocked.indexOf(id) >= 0; }); } }
   ];
 
@@ -51,7 +55,7 @@ var HP = window.HP = window.HP || {};
       unlocked: HP.FOOD_ORDER.filter(function (id) { return !HP.FOODS[id].unlock; }),
       loadout: null,
       totals: { perfect: 0, authentic: 0, blocked: 0, stolen: 0, served: 0, toastOk: 0, eaten: 0, raw: 0 },
-      perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0, seen: {}
+      perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0, seen: {}, pots: ['jiugong'], pot: 'jiugong'
     };
   };
   /* 合并旧存档，缺的字段补默认值 */
@@ -65,6 +69,8 @@ var HP = window.HP = window.HP || {};
     }
     p.unlocked = p.unlocked.filter(function (id) { return HP.FOODS[id]; });
     HP.FOOD_ORDER.forEach(function (id) { if (!HP.FOODS[id].unlock && p.unlocked.indexOf(id) < 0) p.unlocked.push(id); });
+    if (p.pots.indexOf('jiugong') < 0) p.pots.unshift('jiugong');
+    if (p.pots.indexOf(p.pot) < 0) p.pot = 'jiugong';
     p.v = 2;
     return p;
   };
@@ -93,6 +99,13 @@ var HP = window.HP = window.HP || {};
     p.loadout = lo;
     return null;
   };
+  HP.unlockPot = function (p, id) {
+    var P = HP.POTS[id];
+    if (p.pots.indexOf(id) >= 0) { p.pot = id; return null; }
+    if (p.coins < P.unlock) return '金币不够，还差 ' + (P.unlock - p.coins);
+    p.coins -= P.unlock; p.pots.push(id); p.pot = id;
+    return null;
+  };
   HP.sceneUnlocked = function (p, id) {
     var S = HP.SCENES[id];
     return !S.unlockGames || p.games >= S.unlockGames;
@@ -100,10 +113,16 @@ var HP = window.HP = window.HP || {};
 
   /* ---------- 每日一锅：同一天所有人同一份菜单、同一串事件 ---------- */
   HP.dailySetup = function (day) {
-    var seed = day * 7919 + 17, r = HP.rng(seed), all = HP.FOOD_ORDER.slice();
-    for (var i = all.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)), t = all[i]; all[i] = all[j]; all[j] = t; }
-    var menu = all.slice(0, TRAY_MAX).sort(function (a, b) { return HP.FOOD_ORDER.indexOf(a) - HP.FOOD_ORDER.indexOf(b); });
-    return { seed: seed, menu: menu, scene: 'bros' };
+    var seed = day * 7919 + 17, r = HP.rng(seed);
+    var shuffle = function (arr) {
+      for (var i = arr.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)), t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+      return arr;
+    };
+    // 每天 5 荤 3 素，所有人同一份
+    var meat = shuffle(HP.FOOD_ORDER.filter(function (id) { return !HP.FOODS[id].veg; }));
+    var veg = shuffle(HP.FOOD_ORDER.filter(function (id) { return HP.FOODS[id].veg; }));
+    var menu = meat.slice(0, 5).concat(veg.slice(0, 3)).sort(function (a, b) { return HP.FOOD_ORDER.indexOf(a) - HP.FOOD_ORDER.indexOf(b); });
+    return { seed: seed, menu: menu, scene: 'bros', pot: r() < 0.34 ? 'yuanyang' : 'jiugong' };
   };
   HP.dayLabel = function (day) { return Math.floor(day / 100) % 100 + '月' + day % 100 + '日'; };
 
@@ -168,16 +187,32 @@ var HP = window.HP = window.HP || {};
     duckblood: ['鸭血守护者', '在角落里慢慢炖，谁也别动'],
     luncheon: ['午餐肉信徒', '火锅里最快乐的那一块'],
     potato: ['土豆片爱好者', '吃火锅也要吃主食'],
-    huanghou: ['黄喉卷卷党', '看它卷成圈才安心']
+    huanghou: ['黄喉卷卷党', '看它卷成圈才安心'],
+    tenderbeef: ['嫩牛肉信徒', '滑嫩才是正义'],
+    goose: ['鹅肠宽面党', '鸭肠太细，只认鹅肠'],
+    kidney: ['腰片狙击手', '三秒卷边，一口脆嫩'],
+    beefball: ['牛丸弹弹弹', '盯着锅底等它浮上来'],
+    tofu: ['冻豆腐吸汁王', '吃的不是豆腐，是汤'],
+    lotus: ['藕断丝连派', '脆就完事了'],
+    lettuce: ['生菜闪电侠', '一秒下锅，一秒出锅'],
+    gongcai: ['贡菜脆脆党', '只认咔嚓那一声'],
+    napa: ['娃娃菜慢炖派', '吸饱了汤才好吃'],
+    shiitake: ['香菇收集者', '每一朵都要十字刀'],
+    wintermelon: ['冬瓜耐心王', '煮到透明，才配下嘴']
   };
   HP.persona = function (s, sceneId) {
     var eaten = s.eaten, ratio = eaten ? s.perfect / eaten : 0;
     var uses = s.cellUse.reduce(function (a, b) { return a + b; }, 0);
-    var center = uses ? s.cellUse[4] / uses : 0, corners = uses ? (s.cellUse[0] + s.cellUse[2] + s.cellUse[6] + s.cellUse[8]) / uses : 0;
+    var POT = HP.POTS[s.potId] || HP.POTS.jiugong;
+    var sum = function (idx) { return idx.reduce(function (a, i) { return a + (s.cellUse[i] || 0); }, 0); };
+    var center = uses ? sum(POT.center) / uses : 0, corners = uses ? sum(POT.corners) / uses : 0;
     var fav = null, favN = 0;
     for (var k in s.pickedBy) if (s.pickedBy.hasOwnProperty(k) && s.pickedBy[k] > favN) { fav = k; favN = s.pickedBy[k]; }
 
     if (eaten === 0) return ['光看不吃', '锅都快烧干了，你一口没动'];
+    if (s.trip >= 1) return ['见过小人的人', '云南朋友建议你先去医院看看'];
+    if (s.strawberry >= 3) return ['黑暗料理王', '川渝人看了沉默，草莓看了流泪'];
+    if (s.enoki >= 4) return ['金针菇：明天见', 'See you tomorrow'];
     if (sceneId === 'team') {
       if (s.rude >= 2) return ['没眼力见', '领导筷子还没动，你已经吃上了'];
       if (s.blockedBoss >= 2) return ['职场勇士', '连领导的筷子都敢挡'];
@@ -194,8 +229,14 @@ var HP = window.HP = window.HP || {};
     if (s.raw >= 3) return ['生吃勇士', '你的肠胃正在给你打电话'];
     if (s.over >= 4) return ['炖菜大师', '你是来吃火锅的还是来熬汤的'];
     if (sceneId === 'bros' && s.toastMiss >= 2) return ['领导的眼中钉', '吃得挺香，就是忘了看领导的杯子'];
-    if (uses >= 6 && center >= 0.6) return ['中间格霸主', '火最旺的地方，永远是你的'];
-    if (uses >= 6 && corners >= 0.5) return ['慢炖哲学家', '四个角落才是火锅的灵魂'];
+    if (s.potId === 'yuanyang') {
+      if (uses >= 6 && corners >= 0.7) return ['清汤养生派', '不吃辣也能把火锅吃明白'];
+      if (uses >= 6 && center >= 0.8) return ['红汤死忠粉', '鸳鸯锅的清汤，你一筷子没碰'];
+    } else {
+      if (uses >= 6 && center >= 0.6) return ['中间格霸主', '火最旺的地方，永远是你的'];
+      if (uses >= 6 && corners >= 0.5) return ['慢炖哲学家', '四个角落才是火锅的灵魂'];
+    }
+    if (eaten >= 8 && s.veg > s.meat) return ['养生火锅派', '吃火锅也要多吃蔬菜'];
     if (fav && favN >= 4 && favN / eaten >= 0.4 && FAV[fav]) return FAV[fav];
     if (s.stolen === 0 && s.blocked === 0 && eaten >= 6) return ['佛系食客', '没人抢你，你也不抢别人'];
     if (ratio >= 0.4) return ['火锅老手', '有点东西，再练练就能出师'];

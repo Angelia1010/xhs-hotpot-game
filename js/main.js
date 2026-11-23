@@ -173,15 +173,28 @@
       var lo = HP.getLoadout(profile);
       $('s-count').textContent = lo.length;
       var list = $('s-list'); list.innerHTML = '';
+      var lastVeg = null;
       HP.FOOD_ORDER.forEach(function (id) {
         var F = HP.FOODS[id], have = profile.unlocked.indexOf(id) >= 0, on = lo.indexOf(id) >= 0;
+        if (!!F.veg !== lastVeg) { lastVeg = !!F.veg; list.appendChild(el('div', 's-head', F.veg ? '素菜' : '荤菜')); }
         var it = el('div', 's-item' + (have ? (on ? ' on' : '') : ' locked'));
         it.setAttribute('data-food', id);
         var im = el('img'); im.src = plateSrc(id); im.alt = F.name; it.appendChild(im);
         it.appendChild(el('b', null, F.name + ' <em class="tag ' + F.mode + '">' + (F.mode === 'swish' ? '涮' : '煮') + '</em>'));
         var dex = profile.perfectBy[id] || 0, badge = HP.badgeOf(dex);
-        it.appendChild(el('small', null, have ? (badge ? badge.name + ' · ' : '') + '完美 ' + dex + ' 次' : '用金币解锁'));
+        it.appendChild(el('small', null, have ? (badge ? badge.name + ' · ' : '') + '完美 ' + dex + ' 次' : (F.special ? '梗菜 · ' : '') + '用金币解锁'));
         it.appendChild(el('span', 'state', have ? (on ? '已上桌' : '未上桌') : '<i class="coin"></i>' + F.unlock));
+        list.appendChild(it);
+      });
+      list.appendChild(el('div', 's-head', '锅底'));
+      HP.POT_ORDER.forEach(function (id) {
+        var P = HP.POTS[id], have = profile.pots.indexOf(id) >= 0, on = profile.pot === id;
+        var it = el('div', 's-item pot' + (have ? (on ? ' on' : '') : ' locked'));
+        it.setAttribute('data-pot', id);
+        var im = el('img'); im.src = 'img/scene/' + P.img + '.webp'; im.alt = P.name; it.appendChild(im);
+        it.appendChild(el('b', null, P.name));
+        it.appendChild(el('small', null, id === 'yuanyang' ? '红汤快、清汤慢但分 ×1.3' : '九格火力各不同'));
+        it.appendChild(el('span', 'state', have ? (on ? '使用中' : '换这个') : '<i class="coin"></i>' + P.unlock));
         list.appendChild(it);
       });
       $('home').classList.add('hidden'); $('shop').classList.remove('hidden');
@@ -190,6 +203,15 @@
     $('s-list').addEventListener('click', function (e) {
       var it = e.target.closest ? e.target.closest('.s-item') : null; if (!it) return;
       var id = it.getAttribute('data-food'), err;
+      var pid = it.getAttribute('data-pot');
+      if (pid) {
+        var had = profile.pots.indexOf(pid) >= 0;
+        err = HP.unlockPot(profile, pid);
+        if (!err) { msg(had ? '换成了' + HP.POTS[pid].name : '解锁了' + HP.POTS[pid].name + '！'); if (!had && audio) audio.clink(); }
+        else msg(err);
+        saveProfile(); showShop(); $('h-coins').textContent = profile.coins;
+        return;
+      }
       if (profile.unlocked.indexOf(id) < 0) {
         err = HP.unlockFood(profile, id);
         if (!err) { msg('解锁了 ' + HP.FOODS[id].name + '！'); if (audio) audio.clink(); }
@@ -321,23 +343,25 @@
       current = opt;
       var S = HP.SCENES[opt.scene], D = opt.daily ? HP.dailySetup(HP.dayKey()) : null;
       buildTray(D ? D.menu : HP.getLoadout(profile));
+      var potId = D ? D.pot : profile.pot;
       $('hud-scene').textContent = D ? '今日火锅' : S.name;
-      $('hud-sub').textContent = D ? HP.dayLabel(HP.dayKey()) + ' · 九宫格' : '九宫格 · 川渝';
+      $('hud-sub').textContent = (D ? HP.dayLabel(HP.dayKey()) + ' · ' : '') + HP.POTS[potId].name;
       layout();
       game.mode = 'play';
-      game.setup({ scene: D ? D.scene : opt.scene, seed: D ? D.seed : 0 });
+      game.setup({ scene: D ? D.scene : opt.scene, seed: D ? D.seed : 0, pot: potId });
+      current.pot = potId;
       game.reset(); game.running = true;
       if (S.bossFirst && !D) hooks.onEvent('wait', WAIT, true);
       // 第一局开场在锅上标出火力；一人食飘一句提示
-      if (!profile.seen.heat) { profile.seen.heat = 1; saveProfile(); game.heatLabels = 3.5; }
+      if (!profile.seen['heat_' + potId]) { profile.seen['heat_' + potId] = 1; saveProfile(); game.heatLabels = 3.5; }
       if (!D) tipOnce('scene_' + opt.scene, S.tip);
     }
     function startTutorial() {
       audio.unlock(); hideOverlays();
       buildTray(['beef', 'maodu', 'luncheon', 'potato', 'duckblood', 'shrimp']);
-      $('hud-scene').textContent = '新手教学'; $('hud-sub').textContent = '九宫格 · 川渝';
+      $('hud-scene').textContent = '新手教学'; $('hud-sub').textContent = '九宫格';
       layout();
-      game.setup({ scene: 'bros', seed: 0 });
+      game.setup({ scene: 'bros', seed: 0, pot: 'jiugong' });
       tutorial.start();
     }
     $('btn-again').addEventListener('click', function () { startRound(current || { scene: 'bros', daily: false }); });
@@ -349,7 +373,7 @@
       var r = HP.settle(profile, s, ctx);
       saveProfile();
       var p = HP.persona(s, sceneId);
-      var label = current.daily ? '今日火锅 · ' + HP.dayLabel(HP.dayKey()) : HP.SCENES[current.scene].name + ' · 九宫格';
+      var label = (current.daily ? '今日火锅 · ' + HP.dayLabel(HP.dayKey()) : HP.SCENES[current.scene].name) + ' · ' + HP.POTS[current.pot].name;
       cardUrl = HP.renderCard(images, s, p, { date: today(), scene: label, isBest: r.isBest, title: HP.titleOf(profile) });
       $('r-img').src = cardUrl;
       $('save-tip').textContent = '';

@@ -21,54 +21,112 @@ var HP = window.HP = window.HP || {};
     this.mode = 'play'; this.ghost = null; this.tutorialHeat = 1;
     this.scene = HP.SCENES.bros; this.sceneId = 'bros'; this.rng = Math.random;
     this.audio = null;
-    this.buildCells();
+    this.setPot('jiugong');
     this.fx = new HP.FX(this);
     this.reset();
   }
   HP.Game = Game;
 
-  /* ---------- 九宫格几何 ---------- */
-  Game.prototype.buildCells = function () {
-    var P = HP.POT;
-    var xs = [[P.cx - P.rx, P.vx[0] - P.half], [P.vx[0] + P.half, P.vx[1] - P.half], [P.vx[1] + P.half, P.cx + P.rx]];
-    var ys = [[P.cy - P.ry, P.hy[0] - P.half], [P.hy[0] + P.half, P.hy[1] - P.half], [P.hy[1] + P.half, P.cy + P.ry]];
-    this.cells = [];
-    for (var r = 0; r < 3; r++) for (var c = 0; c < 3; c++)
-      this.cells.push({ x0: xs[c][0], x1: xs[c][1], y0: ys[r][0], y1: ys[r][1] });
+  /* ---------- 锅底几何：分区（九宫格 9 个矩形 / 鸳鸯锅 2 半） ---------- */
+  Game.prototype.setPot = function (id) {
+    var P = HP.POTS[id] || HP.POTS.jiugong, self = this;
+    this.potId = HP.POTS[id] ? id : 'jiugong'; this.pot = P; this.ell = P.ell;
+    var zones = [];
+    if (P.kind === 'grid') {
+      var E = P.ell;
+      var xs = [[E.cx - E.rx, P.vx[0] - P.half], [P.vx[0] + P.half, P.vx[1] - P.half], [P.vx[1] + P.half, E.cx + E.rx]];
+      var ys = [[E.cy - E.ry, P.hy[0] - P.half], [P.hy[0] + P.half, P.hy[1] - P.half], [P.hy[1] + P.half, E.cy + E.ry]];
+      for (var r = 0; r < 3; r++) for (var c = 0; c < 3; c++) zones.push({ x0: xs[c][0], x1: xs[c][1], y0: ys[r][0], y1: ys[r][1] });
+    } else {
+      // 鸳鸯锅：左边红汤、右边清汤，中间隔板留出 half 宽度
+      var D = P.divider, E2 = P.ell;
+      var side = function (sgn) {
+        var pts = D.map(function (d) { return [d[1] + sgn * P.half, d[0]]; });
+        var edge = sgn < 0 ? E2.cx - E2.rx - 0.05 : E2.cx + E2.rx + 0.05;
+        pts.push([edge, D[D.length - 1][0]]); pts.push([edge, D[0][0]]);
+        return pts;
+      };
+      zones.push({ poly: side(-1), side: -1, x0: E2.cx - E2.rx, x1: E2.cx + 0.1, y0: E2.cy - E2.ry, y1: E2.cy + E2.ry });
+      zones.push({ poly: side(1), side: 1, x0: E2.cx - 0.1, x1: E2.cx + E2.rx, y0: E2.cy - E2.ry, y1: E2.cy + E2.ry });
+    }
+    this.zones = zones;
+    // 每个分区的面积和中心（抽样估算），用来决定冒泡数量和标签位置
+    var tot = 0;
+    zones.forEach(function (z, i) {
+      var n = 0, sx = 0, sy = 0;
+      for (var k = 0; k < 400; k++) {
+        var nx = z.x0 + Math.random() * (z.x1 - z.x0), ny = z.y0 + Math.random() * (z.y1 - z.y0);
+        if (self.cellAt(nx, ny) === i) { n++; sx += nx; sy += ny; }
+      }
+      z.area = (z.x1 - z.x0) * (z.y1 - z.y0) * n / 400; tot += z.area;
+      z.cx = n ? sx / n : (z.x0 + z.x1) / 2; z.cy = n ? sy / n : (z.y0 + z.y1) / 2;
+    });
+    zones.forEach(function (z) { z.share = z.area / tot; });
+    if (this.fx) { this.fx.glints = []; for (var g = 0; g < 46; g++) this.fx.glints.push(this.fx.randomGlint()); this.fx.bubbles = []; }
+  };
+  Game.prototype.heatOf = function (cell) { return this.pot.heat[cell] || 1; };
+  Game.prototype.dividerX = function (ny) {
+    var D = this.pot.divider;
+    if (ny <= D[0][0]) return D[0][1];
+    for (var i = 1; i < D.length; i++) if (ny <= D[i][0]) {
+      var t = (ny - D[i - 1][0]) / (D[i][0] - D[i - 1][0]);
+      return D[i - 1][1] + (D[i][1] - D[i - 1][1]) * t;
+    }
+    return D[D.length - 1][1];
   };
   Game.prototype.inEllipse = function (nx, ny, shrink) {
-    var P = HP.POT, s = shrink || 0;
-    var dx = (nx - P.cx) / (P.rx - s), dy = (ny - P.cy) / (P.ry - s);
+    var E = this.ell, s = shrink || 0;
+    var dx = (nx - E.cx) / (E.rx - s), dy = (ny - E.cy) / (E.ry - s);
     return dx * dx + dy * dy <= 1;
   };
   Game.prototype.cellAt = function (nx, ny) {
     if (!this.inEllipse(nx, ny, 0)) return -1;
-    for (var i = 0; i < 9; i++) {
-      var c = this.cells[i];
+    if (this.pot.kind === 'split') {
+      var dx = nx - this.dividerX(ny);
+      if (Math.abs(dx) < this.pot.half) return -1;
+      return dx < 0 ? 0 : 1;
+    }
+    for (var i = 0; i < this.zones.length; i++) {
+      var c = this.zones[i];
       if (nx >= c.x0 && nx <= c.x1 && ny >= c.y0 && ny <= c.y1) return i;
     }
     return -1;
   };
-  /* 在某个格子（或任意格子 cell=-1）的汤面里随机取一点 */
+  /* 在某个分区（或任意分区 cell=-1，按面积随机）的汤面里随机取一点 */
   Game.prototype.randomSoupPoint = function (cell, margin) {
     var m = margin || 0.008;
-    for (var k = 0; k < 40; k++) {
-      var c = this.cells[cell >= 0 ? cell : Math.floor(Math.random() * 9)];
-      var nx = rand(c.x0 + m, c.x1 - m), ny = rand(c.y0 + m, c.y1 - m);
-      if (this.inEllipse(nx, ny, m)) return { nx: nx, ny: ny };
+    for (var k = 0; k < 60; k++) {
+      var idx = cell >= 0 ? cell : this.pickZone(function () { return 1; });
+      var c = this.zones[idx];
+      var nx = c.x0 + m + Math.random() * (c.x1 - c.x0 - 2 * m), ny = c.y0 + m + Math.random() * (c.y1 - c.y0 - 2 * m);
+      if (this.inEllipse(nx, ny, m) && this.cellAt(nx, ny) === idx &&
+          (this.pot.kind !== 'split' || Math.abs(nx - this.dividerX(ny)) > this.pot.half + m)) return { nx: nx, ny: ny };
     }
-    return { nx: HP.POT.cx, ny: HP.POT.cy };
+    return { nx: this.zones[cell >= 0 ? cell : 0].cx, ny: this.zones[cell >= 0 ? cell : 0].cy };
+  };
+  /* 按「面积 × 权重」随机挑一个分区 */
+  Game.prototype.pickZone = function (weight) {
+    var z = this.zones, sum = 0, i;
+    for (i = 0; i < z.length; i++) sum += z[i].share * weight(i);
+    var r = Math.random() * sum;
+    for (i = 0; i < z.length; i++) { r -= z[i].share * weight(i); if (r <= 0) return i; }
+    return z.length - 1;
   };
   Game.prototype.clipSoup = function (ctx) {
-    var P = HP.POT, o = this.toScreen(P.cx, P.cy);
+    var E = this.ell, o = this.toScreen(E.cx, E.cy), self = this;
     ctx.beginPath();
-    ctx.ellipse(o.x, o.y, P.rx * this.potSize, P.ry * this.potSize, 0, 0, Math.PI * 2);
+    ctx.ellipse(o.x, o.y, E.rx * this.potSize, E.ry * this.potSize, 0, 0, Math.PI * 2);
     ctx.clip();
     ctx.beginPath();
-    for (var i = 0; i < 9; i++) {
-      var c = this.cells[i], a = this.toScreen(c.x0, c.y0);
-      ctx.rect(a.x, a.y, (c.x1 - c.x0) * this.potSize, (c.y1 - c.y0) * this.potSize);
-    }
+    this.zones.forEach(function (c) {
+      if (c.poly) {
+        c.poly.forEach(function (p, i) { var q = self.toScreen(p[0], p[1]); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); });
+        ctx.closePath();
+      } else {
+        var a = self.toScreen(c.x0, c.y0);
+        ctx.rect(a.x, a.y, (c.x1 - c.x0) * self.potSize, (c.y1 - c.y0) * self.potSize);
+      }
+    });
     ctx.clip();
   };
 
@@ -91,6 +149,7 @@ var HP = window.HP = window.HP || {};
   /* ---------- 一局的设置：剧本、随机种子 ---------- */
   Game.prototype.setup = function (opt) {
     this.sceneId = opt.scene || 'bros'; this.scene = HP.SCENES[this.sceneId];
+    this.setPot(opt.pot || 'jiugong');
     this.rng = opt.seed ? HP.rng(opt.seed) : Math.random;
   };
   Game.prototype.rr = function (a, b) { return a + this.rng() * (b - a); };
@@ -110,9 +169,9 @@ var HP = window.HP = window.HP || {};
     this.drag = null; this.hold = null;
     this.stats = { score: 0, combo: 0, bestCombo: 0, perfect: 0, raw: 0, over: 0, eaten: 0, stolen: 0, blocked: 0, spent: 0,
                    authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {},
-                   cellUse: [0, 0, 0, 0, 0, 0, 0, 0, 0], served: 0, servedBad: 0, rude: 0, blockedBoss: 0 };
+                   cellUse: this.zones.map(function () { return 0; }), potId: this.potId, veg: 0, meat: 0, strawberry: 0, trip: 0, enoki: 0, balanced: false, served: 0, servedBad: 0, rude: 0, blockedBoss: 0 };
     this.waitBoss = this.scene.bossFirst || 0;
-    this.heatLabels = 0;
+    this.heatLabels = 0; this.trip = 0;
   };
 
   /* 通知外部（教学引导用） */
@@ -167,13 +226,22 @@ var HP = window.HP = window.HP || {};
       var r = HP.FOODS[f.type].size * this.potSize * 0.6 + 12;
       if (dd < r && dd < bd) { best = f; bd = dd; }
     }
+    if (best && HP.FOODS[best.type].special === 'tangle' && !best.untangled) {
+      best.untangled = true;
+      var bp = this.toScreen(best.nx, best.ny);
+      this.fx.text(bp.x, bp.y - 30 * this.unit, '缠住了！再点一下', '#fff2dc', 15 * Math.max(0.8, this.unit));
+      if (this.audio) this.audio.clack();
+      return;
+    }
     if (best) this.pick(best);
   };
 
   /* 计分：连击、老手加成、飘字、音效、震动 */
   Game.prototype.award = function (f, x, y) {
-    var r = this.rate(f), s = this.stats;
-    var gain = r.score;
+    var r = this.rate(f), s = this.stats, F = HP.FOODS[f.type];
+    var gain = r.score, big = Math.max(0.8, this.unit);
+    if (F.veg) s.veg++; else s.meat++;
+    if (f.type === 'enoki') s.enoki++;
     s.pickedBy[f.type] = (s.pickedBy[f.type] || 0) + 1;
     if (r.kind === 'perfect') s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1;
     if (r.kind === 'perfect') { s.combo++; s.perfect++; gain = Math.round(gain * Math.min(3, 1 + (s.combo - 1) * 0.5)); }
@@ -182,13 +250,23 @@ var HP = window.HP = window.HP || {};
     if (r.kind === 'raw') s.raw++;
     if (r.kind === 'over') s.over++;
     if (!this.hints && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
+    var zm = f.cell >= 0 ? (this.pot.mul[f.cell] || 1) : 1;
+    if (zm !== 1 && gain > 0) gain = Math.round(gain * zm);
+    // 梗菜
+    if (F.special === 'strawberry' && r.kind !== 'raw') {
+      s.strawberry++;
+      this.fx.text(x, y - 78 * this.unit, '川渝人看了沉默了……', '#ffb3c7', 15 * big);
+    }
+    if (F.special === 'trip' && r.kind === 'raw') {
+      s.trip++; this.trip = 6;
+      this.fx.text(this.W / 2, this.potY + this.potSize * 0.15, '没煮熟！看见小人了……', '#c7a7ff', 20 * big);
+    }
     if (this.waitBoss > 0 && this.mode === 'play') {
       gain -= 30; s.rude++;
       this.fx.text(x, y - 78 * this.unit, '领导还没动筷！-30', '#ff8a6a', 16 * Math.max(0.8, this.unit));
     }
     s.bestCombo = Math.max(s.bestCombo, s.combo); s.eaten++;
     s.score = Math.max(0, s.score + gain);
-    var big = Math.max(0.8, this.unit);
     this.fx.text(x, y - 26 * this.unit, r.label + (gain >= 0 ? ' +' + gain : ' ' + gain), r.color, 20 * big);
     if (s.combo >= 2 && r.kind === 'perfect') this.fx.text(x, y - 52 * this.unit, s.combo + ' 连击 ×' + Math.min(3, 1 + (s.combo - 1) * 0.5).toFixed(1), '#ffd35c', 16 * big);
     if (this.audio) this.audio.crunch(r.kind === 'perfect');
@@ -230,7 +308,7 @@ var HP = window.HP = window.HP || {};
     var pt = this.dragPoint(h), n = this.toNorm(pt.x, pt.y), cell = this.cellAt(n.nx, n.ny);
     var u = this.unit, F = HP.FOODS[h.type];
     if (cell >= 0 && !h.entered) {
-      h.entered = true; h.up = false; h.ext = pt.y; h.settle = 0.3;
+      h.entered = true; h.up = false; h.ext = pt.y; h.settle = 0.3; h.lastCell = cell;
       this.stats.spent += F.price; this.stats.cellUse[cell]++;
       this.emit('holdEnter', { type: h.type });
       this.fx.splash(n.nx, n.ny, 0.7); if (this.audio) this.audio.splash();
@@ -254,16 +332,16 @@ var HP = window.HP = window.HP || {};
         }
       }
     }
-    h.cell = cell;
+    h.cell = cell; if (cell >= 0) h.lastCell = cell;
     var under = !h.up && cell >= 0;
-    if (under) h.d += dt * HP.HEAT[cell] * this.heatMul;
+    if (under) h.d += dt * this.heatOf(cell) * this.heatMul;
     h.depth += ((under ? 0.5 : 0) - h.depth) * Math.min(1, dt * 12);
   };
   Game.prototype.releaseHold = function () {
     var h = this.hold; this.hold = null;
     if (!h || !h.entered) { this.emit('holdCancel', {}); return; }   // 还没下锅就松手：放回盘子，不扣钱
     var pt = this.dragPoint(h);
-    var f = { type: h.type, d: h.d, dips: HP.FOODS[h.type].dips ? h.dips : null, rot: h.rot, state: 'lift' };
+    var f = { type: h.type, d: h.d, dips: HP.FOODS[h.type].dips ? h.dips : null, rot: h.rot, state: 'lift', cell: h.lastCell };
     this.lift.push({ f: f, t: 0, x0: pt.x, y0: pt.y });
     var r = this.award(f, pt.x, pt.y);
     this.emit('holdRelease', { type: h.type, kind: r.kind, dips: h.dips });
@@ -408,7 +486,7 @@ var HP = window.HP = window.HP || {};
     if (cfg.heat) this.heatTarget = cfg.heat;
     if (type === 'soup') {
       // 从锅边倒汤：几圈大涟漪
-      var cells = [0, 2, 6, 8], c = cells[Math.floor(this.rng() * 4)];
+      var cells = this.pot.edges, c = cells[Math.floor(this.rng() * cells.length)];
       for (i = 0; i < 3; i++) { var p = this.randomSoupPoint(c); this.fx.splash(p.nx, p.ny, 1.3); }
       if (this.audio) this.audio.pour();
     }
@@ -460,7 +538,7 @@ var HP = window.HP = window.HP || {};
       if (f.drop > 0) f.drop = Math.max(0, f.drop - dt);
       if (f.state !== 'in') continue;
       f.t += dt;
-      f.d += dt * HP.HEAT[f.cell] * this.heatMul;
+      f.d += dt * this.heatOf(f.cell) * this.heatMul;
       // 虾滑：生的沉在锅底，快熟时浮上来（玩家看「浮起」判断）
       var target = F.sinker ? (f.d < F.a * 0.85 ? 0.85 : 0) : F.depth + (f.d > F.b + 4 ? 0.12 : 0);
       f.depth += (target - f.depth) * Math.min(1, dt * 1.6);
@@ -485,6 +563,10 @@ var HP = window.HP = window.HP || {};
     if (this.ghost) this.ghost.t += dt;
     if (this.heatLabels > 0) this.heatLabels -= dt;
 
+    if (!tut && this.timeLeft <= 0 && this.stats.veg >= 3 && this.stats.meat >= 3 && !this.stats.balanced) {
+      this.stats.balanced = true; this.stats.score += HP.BALANCE_BONUS;
+    }
+    if (this.trip > 0) this.trip -= dt;
     if (!tut && this.timeLeft <= 0) { this.running = false; this.drag = null; if (this.hold) this.releaseHold(); this.endEvent(); if (this.hooks.onEnd) this.hooks.onEnd(this.stats); }
   };
 
@@ -496,7 +578,7 @@ var HP = window.HP = window.HP || {};
   };
 
   /* 画一块食材：三个熟度状态按权重渐变，再按「泡在汤里的深度」盖一层红汤色 */
-  Game.prototype.drawFood = function (ctx, type, x, y, w, rot, depth, scale, alpha) {
+  Game.prototype.drawFood = function (ctx, type, x, y, w, rot, depth, scale, alpha, tint) {
     var imgs = this.img.food[type], F = HP.FOODS[type];
     var base = Math.max(imgs[0].width, imgs[0].height);
     var k = F.size * this.potSize / base * (scale || 1);
@@ -516,7 +598,7 @@ var HP = window.HP = window.HP || {};
     if (depth > 0.01) {
       s.setTransform(1, 0, 0, 1, 0, 0);
       s.globalCompositeOperation = 'source-atop';
-      s.fillStyle = 'rgba(120,8,2,' + Math.min(0.62, depth * 0.7) + ')';
+      s.fillStyle = 'rgba(' + (tint || '120,8,2') + ',' + Math.min(0.62, depth * 0.7) + ')';
       s.fillRect(0, 0, box * dpr, box * dpr);
       s.globalCompositeOperation = 'source-over';
     }
@@ -565,10 +647,45 @@ var HP = window.HP = window.HP || {};
   Game.prototype.drawHeatLabels = function (ctx) {
     var a = Math.min(1, this.heatLabels / 0.6), self = this;
     ctx.save(); ctx.globalAlpha = a;
-    [[4, '火最大', '#ffd35c'], [0, '火小', '#9fd8ff'], [2, '火小', '#9fd8ff'], [6, '火小', '#9fd8ff'], [8, '火小', '#9fd8ff']].forEach(function (L) {
-      var c = self.cells[L[0]], p = self.toScreen((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2);
+    this.pot.labels.forEach(function (L) {
+      var z = self.zones[L[0]], p = self.toScreen(z.cx, z.cy);
       self.drawLabel(ctx, p.x, p.y, L[1], L[2]);
     });
+    ctx.restore();
+  };
+
+  /* 见手青没煮熟：画面按行波动、偏紫，锅边有小人走来走去（只影响画面，不影响操作） */
+  Game.prototype.drawTrip = function (ctx) {
+    var k = Math.min(1, this.trip / 1.2, (6 - this.trip) / 0.6), t = this.time, W = this.W, H = this.H, i;
+    if (!this.tripCanvas) this.tripCanvas = document.createElement('canvas');
+    var tc = this.tripCanvas, dpr = this.dpr;
+    if (tc.width !== this.canvas.width || tc.height !== this.canvas.height) { tc.width = this.canvas.width; tc.height = this.canvas.height; }
+    var tx = tc.getContext('2d');
+    tx.setTransform(1, 0, 0, 1, 0, 0); tx.clearRect(0, 0, tc.width, tc.height); tx.drawImage(this.canvas, 0, 0);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    var band = Math.round(10 * dpr);
+    for (var y = 0; y < tc.height; y += band) {
+      var off = Math.sin(y / (40 * dpr) + t * 4) * 9 * dpr * k;
+      ctx.drawImage(tc, 0, y, tc.width, band, off, y, tc.width, band);
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.globalCompositeOperation = 'overlay';
+    ctx.fillStyle = 'hsla(' + ((t * 80) % 360) + ',80%,55%,' + (0.35 * k) + ')';
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    // 小人
+    ctx.save(); ctx.globalAlpha = k; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'; ctx.lineWidth = 2 * this.unit; ctx.lineCap = 'round';
+    for (i = 0; i < 6; i++) {
+      var ang = t * 0.6 + i * Math.PI / 3, E = this.ell;
+      var cx = this.potX + (E.cx + Math.cos(ang) * E.rx * 1.08) * this.potSize, cy = this.potY + (E.cy + Math.sin(ang) * E.ry * 1.08) * this.potSize;
+      var s = 7 * this.unit, step = Math.sin(t * 10 + i) * 0.5;
+      ctx.beginPath(); ctx.arc(cx, cy - s * 1.6, s * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx, cy - s * 1.1); ctx.lineTo(cx, cy);
+      ctx.moveTo(cx, cy); ctx.lineTo(cx - s * 0.5 * (1 + step), cy + s * 0.9); ctx.moveTo(cx, cy); ctx.lineTo(cx + s * 0.5 * (1 - step), cy + s * 0.9);
+      ctx.moveTo(cx - s * 0.6, cy - s * 0.7 + step * s * 0.4); ctx.lineTo(cx + s * 0.6, cy - s * 0.7 - step * s * 0.4);
+      ctx.stroke();
+    }
     ctx.restore();
   };
 
@@ -653,21 +770,21 @@ var HP = window.HP = window.HP || {};
     glow.addColorStop(0, 'rgba(255,90,20,0.25)'); glow.addColorStop(1, 'rgba(255,90,20,0)');
     ctx.fillStyle = glow; ctx.fillRect(0, 0, this.W, this.H);
 
-    ctx.drawImage(S.pot, this.potX, this.potY, this.potSize, this.potSize);
+    ctx.drawImage(S[this.pot.img], this.potX, this.potY, this.potSize, this.potSize);
     this.fx.drawSoup(ctx, this.time);
 
     // 食材：沉得深的先画
     var list = this.foods.filter(function (f) { return f.state === 'in'; }).sort(function (a, b) { return b.depth - a.depth; });
     for (i = 0; i < list.length; i++) {
       f = list[i];
-      var heat = HP.HEAT[f.cell];
+      var heat = this.heatOf(f.cell);
       p = this.toScreen(f.nx, f.ny);
       // 汤在翻滚，食材跟着上下浮动、轻轻打转
       var bx = Math.sin(f.t * 0.9 + f.ph) * 1.6 * heat * this.unit;
       var by = Math.cos(f.t * 1.3 + f.ph) * 1.2 * heat * this.unit;
       var rot = f.rot + Math.sin(f.t * 0.7 + f.ph) * 0.06 * heat;
       var dropS = f.drop > 0 ? 1 + f.drop * 1.6 : 1;
-      this.drawFood(ctx, f.type, p.x + bx, p.y + by, this.foodWeights(f), rot, f.depth, dropS, 1);
+      this.drawFood(ctx, f.type, p.x + bx, p.y + by, this.foodWeights(f), rot, f.depth, dropS, 1, this.pot.tint[f.cell]);
       if (this.hints && f.depth < 0.5) this.drawHint(ctx, f, p.x + bx, p.y + by);
       if (f.targeted) {
         ctx.save(); ctx.strokeStyle = 'rgba(255,70,50,' + (0.5 + 0.5 * Math.sin(this.time * 14)) + ')';
@@ -703,7 +820,7 @@ var HP = window.HP = window.HP || {};
         }
       }
       var lift = h.up ? -8 * this.unit : 0;
-      this.drawFood(ctx, h.type, hp.x, hp.y + lift, this.foodWeights(h), h.rot + Math.sin(this.time * 9) * 0.05, h.depth, h.up ? 1.12 : 1.02, 1);
+      this.drawFood(ctx, h.type, hp.x, hp.y + lift, this.foodWeights(h), h.rot + Math.sin(this.time * 9) * 0.05, h.depth, h.up ? 1.12 : 1.02, 1, this.pot.tint[h.lastCell]);
       if (this.hints && h.entered) this.drawHint(ctx, h, hp.x, hp.y + lift);
       this.drawSprite(ctx, S.chopsticks_closed, [0.492, 0.0], { x: hp.x, y: hp.y + lift }, chopRot, chopH, 1);
       if (F.dips && h.entered) this.drawDips(ctx, h, hp.x, hp.y - F.size * this.potSize * 0.9);
@@ -721,6 +838,7 @@ var HP = window.HP = window.HP || {};
     }
 
     this.fx.drawSteam(ctx, this.time);
+    if (this.trip > 0) this.drawTrip(ctx);
     if (this.heatLabels > 0) this.drawHeatLabels(ctx);
     this.fx.drawTexts(ctx);
     this.drawGhost(ctx);

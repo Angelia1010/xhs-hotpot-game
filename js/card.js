@@ -18,6 +18,10 @@ var HP = window.HP = window.HP || {};
   /* 两句最有梗的「本局实录」 */
   HP.cardLines = function (s) {
     var L = [], st = maxKey(s.stolenBy);
+    if (s.trip) L.push('吃了没熟的见手青，看见了小人');
+    if (s.strawberry) L.push('吃了 ' + s.strawberry + ' 个草莓毛肚，川渝人沉默了');
+    if (s.enoki >= 2) L.push('吃了 ' + s.enoki + ' 份金针菇：明天见');
+    if (s.balanced) L.push('荤素搭配 +' + HP.BALANCE_BONUS);
     if (s.authentic) L.push('正宗七上八下 ×' + s.authentic);
     if (st && st.n >= 2) L.push('被同桌抢走 ' + st.n + ' 块' + HP.FOODS[st.key].name);
     if (s.blocked) L.push('挡下同桌 ' + s.blocked + ' 双筷子');
@@ -102,13 +106,13 @@ var HP = window.HP = window.HP || {};
 
     // 实录
     ctx.textAlign = 'center';
-    var lines = HP.cardLines(s);
+    var lines = HP.cardLines(s).slice(0, 2);
     ctx.font = '600 32px ' + FONT; ctx.fillStyle = '#ffe9cf';
-    ctx.fillText(lines.join('　·　'), W / 2, 1312, W - 120);
+    lines.forEach(function (l, i) { ctx.fillText(l, W / 2, 1300 + i * 44 + (lines.length === 1 ? 22 : 0), W - 120); });
 
     // 落款
     ctx.font = '700 28px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.9)';
-    ctx.fillText('来小红书「火锅局」，看看你是哪种火锅人', W / 2, 1380);
+    ctx.fillText('来小红书「火锅局」，看看你是哪种火锅人', W / 2, 1400);
 
     return c.toDataURL('image/jpeg', 0.9);
   };

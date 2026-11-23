@@ -9,6 +9,13 @@ FOOD = {  # 原图文件名 -> 食材 id
     'food_luncheon.png': 'luncheon', '02.png': 'potato', '03.png': 'beef',
     '04.png': 'duckintestine', '05.png': 'shrimp', '06.png': 'maodu',
     '07.png': 'huanghou', '08.png': 'duckblood',
+    # 第二批
+    'food_goose.png': 'goose', 'food_tenderbeef.png': 'tenderbeef', 'food_kidney.png': 'kidney', 'food_tofu.png': 'tofu',
+    'food_lotus.png': 'lotus', 'food_beefball.png': 'beefball', 'food_strawberry_maodu.png': 'strawberry_maodu',
+    'food_jianshouqing.png': 'jianshouqing',
+    # 青菜
+    'food_lettuce.png': 'lettuce', 'food_gongcai.png': 'gongcai', 'food_enoki.png': 'enoki', 'food_napa.png': 'napa',
+    'food_wintermelon.png': 'wintermelon', 'food_shiitake.png': 'shiitake',
 }
 manifest = {'food': {}, 'plate': {}, 'scene': {}}
 
@@ -44,6 +51,7 @@ def split_states(im):
     return out
 
 for fn, fid in FOOD.items():
+    if not os.path.exists(os.path.join(SRC, fn)): continue
     im = Image.open(os.path.join(SRC, fn)).convert('RGBA')
     states = split_states(im)
     # 三态统一缩放比例，保持相对大小（煮老会缩小）
@@ -62,12 +70,13 @@ for fn in sorted(os.listdir(SRC)):
 
 SCENE = {'pot.png': 1000, 'table.png': 1100, 'card_bg.png': 1080, 'chopsticks_open.png': 700,
          'chopsticks_closed.png': 700, 'ladle.png': 600, 'hand_laowang.png': 700,
-         'hand_boss.png': 700, 'hand_friend.png': 700}
+         'hand_boss.png': 700, 'hand_friend.png': 700, 'pot_yuanyang.png': 1000}
 for fn, side in SCENE.items():
+    if not os.path.exists(os.path.join(SRC, fn)): continue
     im = Image.open(os.path.join(SRC, fn))
-    if fn != 'pot.png' and im.mode == 'RGBA': im = im.crop(bbox(im))
+    if not fn.startswith('pot') and im.mode == 'RGBA': im = im.crop(bbox(im))
     q = 78 if im.mode == 'RGB' else 82
     manifest['scene'][fn[:-4]] = save(im, os.path.join(OUT, f'scene/{fn[:-4]}.webp'), side, q)
 
-json.dump(manifest, open(os.path.join(OUT, 'manifest.json'), 'w'), indent=1)
+json.dump(manifest, open(os.path.join(OUT, 'manifest_' + os.path.basename(os.path.normpath(SRC)) + '.json'), 'w'), indent=1)
 print(json.dumps(manifest))
