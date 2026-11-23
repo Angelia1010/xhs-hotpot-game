@@ -397,12 +397,12 @@ var HP = window.HP = window.HP || {};
     }
 
     // 玩家筷子：捞起的菜
-    var chopH = this.potSize * 0.62, chopRot = Math.PI - 0.38;
+    var chopH = this.potSize * 0.62, chopRot = -0.38; // 素材尖头朝上：以尖头为原点，筷身向右下方伸出
     for (i = 0; i < this.lift.length; i++) {
       var L = this.lift[i], t = Math.min(1, L.t / 0.55), e = easeOut(t);
       var x = lerp(L.x0, this.bowl.x, e * e), y = lerp(L.y0, this.bowl.y, e * e) - Math.sin(t * Math.PI) * 40 * this.unit;
       this.drawFood(ctx, L.f.type, x, y, this.foodWeights(L.f), L.f.rot, 0, 1 + Math.sin(t * Math.PI) * 0.35, 1 - Math.max(0, (t - 0.75) / 0.25));
-      this.drawSprite(ctx, S.chopsticks_closed, [0.483, 0.999], { x: x, y: y }, chopRot, chopH, 1 - Math.max(0, (t - 0.8) / 0.2));
+      this.drawSprite(ctx, S.chopsticks_closed, [0.492, 0.0], { x: x, y: y }, chopRot, chopH, 1 - Math.max(0, (t - 0.8) / 0.2));
     }
     // 玩家筷子：从盘子夹起、正在拖动的菜
     if (this.drag) {
@@ -412,7 +412,7 @@ var HP = window.HP = window.HP || {};
         ctx.beginPath(); ctx.ellipse(dp.x, dp.y + 4 * this.unit, 22 * this.unit, 15 * this.unit, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
       }
       this.drawFood(ctx, this.drag.type, dp.x, dp.y, [1, 0, 0], -0.2, 0, 1.15, ok ? 1 : 0.85);
-      this.drawSprite(ctx, S.chopsticks_closed, [0.483, 0.999], dp, chopRot, chopH, 1);
+      this.drawSprite(ctx, S.chopsticks_closed, [0.492, 0.0], dp, chopRot, chopH, 1);
     }
 
     this.fx.drawSteam(ctx, this.time);
