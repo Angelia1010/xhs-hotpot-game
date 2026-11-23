@@ -107,7 +107,7 @@
         im.onload = function () { if (game) layout(); };
         im.src = plateSrc(id);
         p.appendChild(im);
-        p.appendChild(el('span', null, F.name));
+        p.appendChild(el('span', null, F.name + '<i class="pr">¥' + F.price + '</i>'));
         p.appendChild(el('em', 'tag ' + F.mode, F.mode === 'swish' ? '涮' : '煮'));
         tray.appendChild(p);
       });

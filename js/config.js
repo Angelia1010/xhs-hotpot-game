@@ -58,17 +58,17 @@ HP.FOODS = {
   jianshouqing:  { name: '见手青',   mode: 'drop',  a: 10, b: 16,  size: 0.085, price: 30, depth: 0.12, veg: true, unlock: 1000,
                    special: 'trip', tip: '见手青一定要煮熟！没熟就吃会「看见小人」' }
 };
-/* 每道菜的分值系数：涮菜要一直按着、窗口窄，分高；能一次下一锅的便宜煮菜分低 */
-HP.PTS = { beef: 1.3, tenderbeef: 1.4, maodu: 1.2, strawberry_maodu: 1.2, duckintestine: 1.4, goose: 1.4, kidney: 1.3,
-  huanghou: 1.0, shrimp: 1.0, beefball: 0.9, duckblood: 0.9, luncheon: 0.6, tofu: 0.7, potato: 0.6, lotus: 0.7,
-  lettuce: 1.2, gongcai: 1.2, napa: 0.6, enoki: 0.8, shiitake: 0.7, wintermelon: 0.8, jianshouqing: 1.2 };
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
-HP.VERSION = '1.0.3';
-HP.RULES = 2;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
+HP.VERSION = '1.0.4';
+HP.RULES = 3;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
-HP.BORED = { win: 5, n: 3, mul: 0.4 };   // 最近 5 块里同一道菜占 3 块就「吃腻了」：分数 ×0.4、不涨连击
+/* 越贵的菜分越高：¥5 ×0.7 … ¥15 ×1.1 … ¥30 ×1.7 */
+HP.ptsOf = function (type) { return Math.round((0.5 + HP.FOODS[type].price * 0.04) * 100) / 100; };
+/* 同一道菜一局里吃第几块的得分系数：前 3 块满分，再吃就腻了 */
+HP.TIRED = [1, 1, 1, 0.6, 0.4, 0.2];
+HP.TIRED_FREE = 3;
 HP.BALANCE_BONUS = 80;        // 一局荤素各吃 3 块以上的加分
 
 /* 同桌 NPC：手的素材、从哪一侧伸进来、筷子尖在素材里的位置 */

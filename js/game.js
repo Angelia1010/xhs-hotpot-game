@@ -169,7 +169,7 @@ var HP = window.HP = window.HP || {};
     this.drag = null; this.hold = null;
     this.stats = { score: 0, combo: 0, bestCombo: 0, perfect: 0, raw: 0, over: 0, eaten: 0, stolen: 0, blocked: 0, spent: 0,
                    authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {},
-                   cellUse: this.zones.map(function () { return 0; }), potId: this.potId, veg: 0, meat: 0, strawberry: 0, trip: 0, enoki: 0, balanced: false, served: 0, servedBad: 0, rude: 0, blockedBoss: 0, bored: 0, recent: [] };
+                   cellUse: this.zones.map(function () { return 0; }), potId: this.potId, veg: 0, meat: 0, strawberry: 0, trip: 0, enoki: 0, balanced: false, served: 0, servedBad: 0, rude: 0, blockedBoss: 0, bored: 0 };
     this.waitBoss = this.scene.bossFirst || 0;
     this.heatLabels = 0; this.trip = 0; this.crowd = 1; this.crowdTold = false;
   };
@@ -251,13 +251,13 @@ var HP = window.HP = window.HP || {};
     if (f.type === 'enoki') s.enoki++;
     s.pickedBy[f.type] = (s.pickedBy[f.type] || 0) + 1;
     if (r.kind === 'perfect') s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1;
-    // 同一道菜连着吃会腻：分数打折，也不涨连击（防止一直下同一道菜刷分）
-    var B = HP.BORED; s.recent.push(f.type); if (s.recent.length > B.win) s.recent.shift();
-    var same = s.recent.filter(function (t) { return t === f.type; }).length, bored = same >= B.n, bm = B.mul;
-    if (gain > 0) gain = Math.round(gain * (HP.PTS[f.type] || 1));
+    // 越贵的菜分越高；同一道菜一局里吃多了会腻（第 4 块起打折，第 5 块起不涨连击）
+    var nth = s.pickedBy[f.type], T = HP.TIRED, bm = T[Math.min(nth, T.length) - 1], bored = bm < 1;
+    if (gain > 0) gain = Math.round(gain * HP.ptsOf(f.type));
     if (r.kind === 'perfect') {
-      if (!bored) s.combo++;
-      s.perfect++; gain = Math.round(gain * Math.max(1, Math.min(3, 1 + (s.combo - 1) * 0.5)));
+      s.perfect++;
+      // 吃腻了的菜不吃连击加成，也不涨连击（但不打断）
+      if (bm > 0.5) { s.combo++; gain = Math.round(gain * Math.max(1, Math.min(3, 1 + (s.combo - 1) * 0.5))); }
     } else s.combo = 0;
     if (bored && gain > 0) { gain = Math.round(gain * bm); s.bored++; }
     if (r.authentic) s.authentic++;
@@ -282,7 +282,7 @@ var HP = window.HP = window.HP || {};
     s.bestCombo = Math.max(s.bestCombo, s.combo); s.eaten++;
     s.score = Math.max(0, s.score + gain);
     this.fx.text(x, y - 26 * this.unit, r.label + (gain >= 0 ? ' +' + gain : ' ' + gain), r.color, 20 * big);
-    if (bored) this.fx.text(x, y - 52 * this.unit, '吃腻了，换道菜吧', '#ffb38a', 15 * big);
+    if (bored) this.fx.text(x, y - 52 * this.unit, (bm >= 0.6 ? '第' + nth + '块，有点腻了 ×' : '吃腻了，换道菜吧 ×') + bm, '#ffb38a', 15 * big);
     else if (s.combo >= 2 && r.kind === 'perfect') this.fx.text(x, y - 52 * this.unit, s.combo + ' 连击 ×' + Math.min(3, 1 + (s.combo - 1) * 0.5).toFixed(1), '#ffd35c', 16 * big);
     if (this.audio) this.audio.crunch(r.kind === 'perfect');
     if (this.hooks.onScore) this.hooks.onScore(s, r);
