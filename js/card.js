@@ -114,6 +114,6 @@ var HP = window.HP = window.HP || {};
     ctx.font = '700 28px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.9)';
     ctx.fillText('来小红书「火锅局」，看看你是哪种火锅人', W / 2, 1400);
 
-    return c.toDataURL('image/jpeg', 0.9);
+    return c.toDataURL('image/jpeg', 0.85);
   };
 })();

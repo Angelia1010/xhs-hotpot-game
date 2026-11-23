@@ -214,7 +214,10 @@
       }
       if (profile.unlocked.indexOf(id) < 0) {
         err = HP.unlockFood(profile, id);
-        if (!err) { msg('解锁了 ' + HP.FOODS[id].name + '！'); if (audio) audio.clink(); }
+        if (!err) {
+          msg(HP.getLoadout(profile).indexOf(id) >= 0 ? '解锁了 ' + HP.FOODS[id].name + '！已带上桌' : '解锁了 ' + HP.FOODS[id].name + '！桌上满了，先去掉一道再带它');
+          if (audio) audio.clink();
+        }
       } else err = HP.toggleLoadout(profile, id);
       if (err) msg(err);
       saveProfile(); showShop(); $('h-coins').textContent = profile.coins;
@@ -318,7 +321,9 @@
     $('btn-toast').addEventListener('click', function (e) { e.stopPropagation(); game.toast(); });
 
     /* ---------- 开局 / 结算 ---------- */
+    function hideTip() { clearTimeout(tipTimer); $('tip').className = 'tip'; }
     function hideOverlays() {
+      hideTip();
       ['home', 'shop', 'codex', 'result', 'howto', 'intro'].forEach(function (id) { $(id).classList.add('hidden'); });
       $('event').className = 'event'; $('combo').className = 'combo'; $('score').textContent = '0';
     }
@@ -368,6 +373,8 @@
     $('btn-home').addEventListener('click', function () { hideOverlays(); showHome(); });
 
     function finishRound(s) {
+      hideTip(); $('event').className = 'event';
+      if (!current) current = { scene: game.sceneId, daily: false, pot: game.potId };
       var ctx = { scene: current.scene, daily: !!current.daily };
       var sceneId = current.daily ? 'bros' : current.scene;
       var r = HP.settle(profile, s, ctx);
@@ -425,7 +432,7 @@
       }
       requestAnimationFrame(loop);
     }
-    document.addEventListener('visibilitychange', function () { last = 0; });
+    document.addEventListener('visibilitychange', function () { last = 0; if (!document.hidden && audio.ctx) audio.unlock(); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

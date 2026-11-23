@@ -21,8 +21,8 @@ HP.POTS = {
               [0.439, 0.508], [0.488, 0.532], [0.537, 0.547], [0.586, 0.550], [0.635, 0.542], [0.684, 0.525], [0.732, 0.500],
               [0.781, 0.477], [0.830, 0.454], [0.880, 0.437], [0.900, 0.430]],
     heat: [1.25, 0.75], mul: [1, 1.3], tint: ['120,8,2', '150,118,40'],
-    labels: [[0, '红汤 · 熟得快', '#ffd35c'], [1, '清汤 · 慢但分 ×1.3', '#ffe9b0']],
-    center: [0], corners: [1], edges: [0, 1], unlock: 1500
+    labels: [[0, '红汤 熟得快', '#ffd35c'], [1, '清汤 分×1.3', '#ffe9b0']], labelShift: 0.05,
+    center: [0], corners: [1], edges: [0, 1], unlock: 800
   }
 };
 HP.POT_ORDER = ['jiugong', 'yuanyang'];
@@ -33,29 +33,29 @@ HP.POT_ORDER = ['jiugong', 'yuanyang'];
    dips: 七上八下次数；sinker: 生的沉底、熟了浮起；special: 特殊玩法；tip: 第一次下锅的提示 */
 HP.FOODS = {
   beef:          { name: '肥牛',     mode: 'swish', a: 4,  b: 6.5, size: 0.095, price: 15, depth: 0.15 },
-  tenderbeef:    { name: '嫩牛肉',   mode: 'swish', a: 3,  b: 5,   size: 0.100, price: 18, depth: 0.15, unlock: 600 },
+  tenderbeef:    { name: '嫩牛肉',   mode: 'swish', a: 3,  b: 5,   size: 0.100, price: 18, depth: 0.15, unlock: 400 },
   maodu:         { name: '毛肚',     mode: 'swish', a: 4,  b: 10,  size: 0.105, price: 25, depth: 0.10, dips: [7, 8] },
-  strawberry_maodu: { name: '草莓毛肚', mode: 'swish', a: 4, b: 10, size: 0.100, price: 30, depth: 0.10, dips: [7, 8], unlock: 2000,
+  strawberry_maodu: { name: '草莓毛肚', mode: 'swish', a: 4, b: 10, size: 0.100, price: 30, depth: 0.10, dips: [7, 8], unlock: 1000,
                    special: 'strawberry', tip: '网红梗菜：照样七上八下，吃完川渝人会沉默' },
-  duckintestine: { name: '鸭肠',     mode: 'swish', a: 3,  b: 5,   size: 0.115, price: 18, depth: 0.10, unlock: 300 },
-  goose:         { name: '鹅肠',     mode: 'swish', a: 3.5, b: 5.5, size: 0.115, price: 22, depth: 0.10, unlock: 600 },
-  kidney:        { name: '腰片',     mode: 'swish', a: 4,  b: 6.5, size: 0.100, price: 20, depth: 0.12, unlock: 800 },
-  huanghou:      { name: '黄喉',     mode: 'drop',  a: 8,  b: 12,  size: 0.110, price: 22, depth: 0.12, unlock: 500 },
+  duckintestine: { name: '鸭肠',     mode: 'swish', a: 3,  b: 5,   size: 0.115, price: 18, depth: 0.10, unlock: 200 },
+  goose:         { name: '鹅肠',     mode: 'swish', a: 3.5, b: 5.5, size: 0.115, price: 22, depth: 0.10, unlock: 400 },
+  kidney:        { name: '腰片',     mode: 'swish', a: 4,  b: 6.5, size: 0.100, price: 20, depth: 0.12, unlock: 500 },
+  huanghou:      { name: '黄喉',     mode: 'drop',  a: 8,  b: 12,  size: 0.110, price: 22, depth: 0.12, unlock: 300 },
   shrimp:        { name: '虾滑',     mode: 'drop',  a: 6,  b: 9,   size: 0.075, price: 20, depth: 0.0, sinker: true },
-  beefball:      { name: '牛肉丸',   mode: 'drop',  a: 7,  b: 11,  size: 0.075, price: 16, depth: 0.0, sinker: true, unlock: 600 },
+  beefball:      { name: '牛肉丸',   mode: 'drop',  a: 7,  b: 11,  size: 0.075, price: 16, depth: 0.0, sinker: true, unlock: 400 },
   duckblood:     { name: '鸭血',     mode: 'drop',  a: 15, b: 22,  size: 0.080, price: 12, depth: 0.30 },
   luncheon:      { name: '午餐肉',   mode: 'drop',  a: 5,  b: 12,  size: 0.085, price: 8,  depth: 0.12 },
-  tofu:          { name: '冻豆腐',   mode: 'drop',  a: 8,  b: 16,  size: 0.085, price: 8,  depth: 0.25, veg: true, unlock: 400 },
+  tofu:          { name: '冻豆腐',   mode: 'drop',  a: 8,  b: 16,  size: 0.085, price: 8,  depth: 0.25, veg: true, unlock: 250 },
   potato:        { name: '土豆片',   mode: 'drop',  a: 8,  b: 15,  size: 0.085, price: 6,  depth: 0.12, veg: true },
-  lotus:         { name: '藕片',     mode: 'drop',  a: 6,  b: 12,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 400 },
+  lotus:         { name: '藕片',     mode: 'drop',  a: 6,  b: 12,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 250 },
   lettuce:       { name: '生菜',     mode: 'swish', a: 1,  b: 2.5, size: 0.100, price: 5,  depth: 0.10, veg: true, tip: '生菜烫一下就好，一不留神就蔫了' },
-  gongcai:       { name: '贡菜',     mode: 'swish', a: 2,  b: 4,   size: 0.100, price: 8,  depth: 0.10, veg: true, unlock: 300 },
+  gongcai:       { name: '贡菜',     mode: 'swish', a: 2,  b: 4,   size: 0.100, price: 8,  depth: 0.10, veg: true, unlock: 200 },
   napa:          { name: '娃娃菜',   mode: 'drop',  a: 9,  b: 18,  size: 0.090, price: 6,  depth: 0.15, veg: true },
-  enoki:         { name: '金针菇',   mode: 'drop',  a: 5,  b: 10,  size: 0.090, price: 8,  depth: 0.12, veg: true, unlock: 300,
+  enoki:         { name: '金针菇',   mode: 'drop',  a: 5,  b: 10,  size: 0.090, price: 8,  depth: 0.12, veg: true, unlock: 250,
                    special: 'tangle', tip: '金针菇缠成一团，要点两下才夹得起来' },
-  shiitake:      { name: '香菇',     mode: 'drop',  a: 7,  b: 13,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 400 },
-  wintermelon:   { name: '冬瓜',     mode: 'drop',  a: 14, b: 24,  size: 0.085, price: 6,  depth: 0.15, veg: true, unlock: 300, tip: '冬瓜最慢，煮到透明再捞' },
-  jianshouqing:  { name: '见手青',   mode: 'drop',  a: 10, b: 16,  size: 0.085, price: 30, depth: 0.12, veg: true, unlock: 2000,
+  shiitake:      { name: '香菇',     mode: 'drop',  a: 7,  b: 13,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 250 },
+  wintermelon:   { name: '冬瓜',     mode: 'drop',  a: 14, b: 24,  size: 0.085, price: 6,  depth: 0.15, veg: true, unlock: 200, tip: '冬瓜最慢，煮到透明再捞' },
+  jianshouqing:  { name: '见手青',   mode: 'drop',  a: 10, b: 16,  size: 0.085, price: 30, depth: 0.12, veg: true, unlock: 1000,
                    special: 'trip', tip: '见手青一定要煮熟！没熟就吃会「看见小人」' }
 };
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',

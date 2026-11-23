@@ -401,11 +401,12 @@ var HP = window.HP = window.HP || {};
 
   /* 预警时筷子尖离目标多远（占伸手距离的比例），保证筷子尖停在锅边、屏幕内 */
   Game.prototype.warnK = function (n, T) {
-    var m = 14 * this.unit, room;
-    if (n.dir.y < 0) room = T.y - Math.max(this.potY + m, m);
-    else if (n.dir.x < 0) room = T.x - Math.max(this.potX + m, m);
-    else room = Math.min(this.potX + this.potSize - m, this.W - m) - T.x;
-    return clamp(room / n.reach, 0.16, 0.62);
+    // 筷子尖至少停在屏幕内 70 单位，玩家才看得清、点得到
+    var m = 14 * this.unit, edge = 70 * this.unit, room;
+    if (n.dir.y < 0) room = T.y - Math.max(this.potY + m, edge);
+    else if (n.dir.x < 0) room = T.x - Math.max(this.potX + m, edge);
+    else room = Math.min(this.potX + this.potSize - m, this.W - edge) - T.x;
+    return clamp(room / n.reach, 0.08, 0.62);
   };
 
   Game.prototype.updateNpcs = function (dt) {
@@ -635,9 +636,10 @@ var HP = window.HP = window.HP || {};
     ctx.save();
     ctx.globalAlpha = alpha == null ? 1 : alpha;
     ctx.translate(tip.x, tip.y); ctx.rotate(rot);
-    // 投影
-    ctx.save(); ctx.globalAlpha *= 0.25; ctx.filter = 'blur(6px)';
-    ctx.drawImage(im, -tipNorm[0] * im.width * k + 10, -tipNorm[1] * im.height * k + 12, im.width * k, im.height * k);
+    // 投影（预先模糊好的影子图）
+    var sh = this.shadowOf(im), pad = 24 * 2 * k;
+    ctx.save(); ctx.globalAlpha *= 0.3;
+    ctx.drawImage(sh, -tipNorm[0] * im.width * k + 10 - pad, -tipNorm[1] * im.height * k + 12 - pad, im.width * k + pad * 2, im.height * k + pad * 2);
     ctx.restore();
     ctx.drawImage(im, -tipNorm[0] * im.width * k, -tipNorm[1] * im.height * k, im.width * k, im.height * k);
     ctx.restore();
@@ -648,7 +650,7 @@ var HP = window.HP = window.HP || {};
     var a = Math.min(1, this.heatLabels / 0.6), self = this;
     ctx.save(); ctx.globalAlpha = a;
     this.pot.labels.forEach(function (L) {
-      var z = self.zones[L[0]], p = self.toScreen(z.cx, z.cy);
+      var z = self.zones[L[0]], sh = (self.pot.labelShift || 0) * (z.side || 0), p = self.toScreen(z.cx + sh, z.cy);
       self.drawLabel(ctx, p.x, p.y, L[1], L[2]);
     });
     ctx.restore();
@@ -750,6 +752,39 @@ var HP = window.HP = window.HP || {};
     ctx.restore();
   };
 
+  Game.prototype.buildBackground = function () {
+    var S = this.img.scene, c = this.bg || (this.bg = document.createElement('canvas'));
+    c.width = Math.round(this.W * this.dpr); c.height = Math.round(this.H * this.dpr);
+    var ctx = c.getContext('2d');
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    var tb = S.table, sc = Math.max(this.W / tb.width, this.H / tb.height);
+    ctx.drawImage(tb, (this.W - tb.width * sc) / 2, (this.H - tb.height * sc) / 2, tb.width * sc, tb.height * sc);
+    var cy = this.potY + this.potSize / 2;
+    var vg = ctx.createRadialGradient(this.W / 2, cy, this.potSize * 0.4, this.W / 2, cy, Math.max(this.W, this.H) * 0.8);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(10,2,0,0.55)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, this.W, this.H);
+    var glow = ctx.createRadialGradient(this.W / 2, cy, this.potSize * 0.3, this.W / 2, cy, this.potSize * 0.62);
+    glow.addColorStop(0, 'rgba(255,90,20,0.25)'); glow.addColorStop(1, 'rgba(255,90,20,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, this.W, this.H);
+    ctx.drawImage(S[this.pot.img], this.potX, this.potY, this.potSize, this.potSize);
+  };
+
+  /* 手和筷子的模糊阴影：每张图只做一次 */
+  Game.prototype.shadowOf = function (im) {
+    this.shadows = this.shadows || [];
+    for (var i = 0; i < this.shadows.length; i++) if (this.shadows[i].im === im) return this.shadows[i].c;
+    var pad = 24, w = Math.round(im.width / 2) + pad * 2, h = Math.round(im.height / 2) + pad * 2;
+    var sil = document.createElement('canvas'); sil.width = w; sil.height = h;
+    var sx = sil.getContext('2d');
+    sx.drawImage(im, pad, pad, w - pad * 2, h - pad * 2);
+    sx.globalCompositeOperation = 'source-in'; sx.fillStyle = '#000'; sx.fillRect(0, 0, w, h);
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var cx = c.getContext('2d');
+    cx.filter = 'blur(5px)'; cx.drawImage(sil, 0, 0); cx.filter = 'none';
+    this.shadows.push({ im: im, c: c, pad: pad });
+    return c;
+  };
+
   Game.prototype.render = function () {
     var ctx = this.ctx, S = this.img.scene, i, f, p;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -758,19 +793,10 @@ var HP = window.HP = window.HP || {};
       ctx.translate(rand(-sk, sk), rand(-sk, sk));
     }
 
-    // 桌面
-    var tb = S.table, sc = Math.max(this.W / tb.width, this.H / tb.height);
-    ctx.drawImage(tb, (this.W - tb.width * sc) / 2, (this.H - tb.height * sc) / 2, tb.width * sc, tb.height * sc);
-    var vg = ctx.createRadialGradient(this.W / 2, this.potY + this.potSize / 2, this.potSize * 0.4, this.W / 2, this.potY + this.potSize / 2, Math.max(this.W, this.H) * 0.8);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(10,2,0,0.55)');
-    ctx.fillStyle = vg; ctx.fillRect(0, 0, this.W, this.H);
-
-    // 锅底下的暖光
-    var glow = ctx.createRadialGradient(this.W / 2, this.potY + this.potSize / 2, this.potSize * 0.3, this.W / 2, this.potY + this.potSize / 2, this.potSize * 0.62);
-    glow.addColorStop(0, 'rgba(255,90,20,0.25)'); glow.addColorStop(1, 'rgba(255,90,20,0)');
-    ctx.fillStyle = glow; ctx.fillRect(0, 0, this.W, this.H);
-
-    ctx.drawImage(S[this.pot.img], this.potX, this.potY, this.potSize, this.potSize);
+    // 桌面 + 暗角 + 锅底暖光 + 锅：静态部分画一次缓存起来，每帧只贴一张图
+    var key = this.potId + ':' + this.W + 'x' + this.H + ':' + this.dpr + ':' + Math.round(this.potY);
+    if (this.bgKey !== key) { this.bgKey = key; this.buildBackground(); }
+    ctx.drawImage(this.bg, 0, 0, this.bg.width, this.bg.height, 0, 0, this.W, this.H);
     this.fx.drawSoup(ctx, this.time);
 
     // 食材：沉得深的先画

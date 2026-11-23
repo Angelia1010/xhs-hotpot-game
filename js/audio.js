@@ -9,7 +9,11 @@ var HP = window.HP = window.HP || {};
 
   /* 必须在用户第一次点击时调用（浏览器限制） */
   Audio.prototype.unlock = function () {
-    if (this.ctx) return;
+    if (this.ctx) {
+      // iOS 切到后台后会挂起音频，回来时需要在用户操作里恢复
+      if (this.ctx.state === 'suspended' && this.ctx.resume) { try { this.ctx.resume(); } catch (e) {} }
+      return;
+    }
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     try { this.ctx = new AC(); } catch (e) { return; }

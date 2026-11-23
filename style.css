@@ -60,17 +60,17 @@ body {
 .event {
   position: absolute; z-index: 3; left: 50%; bottom: 200px;
   transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: all 0.25s;
-  min-width: 230px; padding: 9px 16px; border-radius: 16px; text-align: center;
+  display: flex; align-items: center; min-width: 230px; max-width: 92%; padding: 8px 14px; border-radius: 16px; text-align: left;
   background: linear-gradient(160deg, rgba(150,25,8,0.95), rgba(70,10,3,0.95));
   border: 1px solid rgba(255,200,140,0.4); box-shadow: 0 10px 26px rgba(0,0,0,0.5);
 }
 .event.show { opacity: 1; transform: translate(-50%, 0); }
-.event b { display: block; font-size: 15px; color: #ffe2a8; }
+.event b { display: block; font-size: 14px; color: #ffe2a8; white-space: nowrap; }
 .event small { display: block; font-size: 11px; opacity: 0.8; margin-top: 2px; }
 .event.fire { background: linear-gradient(160deg, rgba(230,80,10,0.96), rgba(120,20,0,0.96)); }
 .event.soup { background: linear-gradient(160deg, rgba(90,60,40,0.95), rgba(40,22,12,0.95)); }
 .toast-btn {
-  display: none; margin: 8px auto 2px; padding: 9px 30px; border: 0; border-radius: 14px;
+  display: none; flex: none; margin: 0 0 0 12px; padding: 9px 18px; border: 0; border-radius: 14px;
   font: inherit; font-size: 17px; font-weight: 900; letter-spacing: 4px; color: #3a0d00;
   background: linear-gradient(#ffe48a, #ffab1f); box-shadow: 0 4px 0 #b35b00;
   animation: pulse 0.45s infinite alternate;
@@ -292,7 +292,7 @@ body {
 
 /* ---------- 一次性提示 ---------- */
 .tip {
-  position: absolute; z-index: 6; left: 50%; top: 120px; top: calc(120px + var(--inset-top, 0px)); transform: translate(-50%, -8px);
+  position: absolute; z-index: 4; left: 50%; top: 120px; top: calc(120px + var(--inset-top, 0px)); transform: translate(-50%, -8px);
   max-width: 86%; padding: 8px 16px; border-radius: 14px; font-size: 13px; font-weight: 700; text-align: center;
   color: #3a0d00; background: linear-gradient(#ffe48a, #ffab1f); box-shadow: 0 8px 20px rgba(0,0,0,0.45);
   opacity: 0; pointer-events: none; transition: all 0.25s;
