@@ -70,7 +70,7 @@ var HP = window.HP = window.HP || {};
   };
 
   FX.prototype.spawnBubble = function (cell, big) {
-    var p = this.game.randomSoupPoint(cell), heat = HP.HEAT[cell];
+    var p = this.game.randomSoupPoint(cell), heat = HP.HEAT[cell] * this.game.heatMul;
     var max = (big ? rand(7, 12) : rand(2.2, 5.5) * (0.7 + heat * 0.35));
     this.bubbles.push({ nx: p.nx, ny: p.ny, r: 0, max: max, t: 0, life: rand(0.35, 0.9) / (0.6 + heat * 0.4), cell: cell });
   };
@@ -96,7 +96,7 @@ var HP = window.HP = window.HP || {};
 
     // 1. 按格子火力生成气泡：中心格翻滚，四角只是微微冒泡
     for (i = 0; i < 9; i++) {
-      var heat = HP.HEAT[i];
+      var heat = HP.HEAT[i] * g.heatMul;
       this.bubbleAcc[i] += dt * (heat * heat * 9) * q;
       while (this.bubbleAcc[i] > 1) {
         this.bubbleAcc[i] -= 1;
@@ -135,7 +135,7 @@ var HP = window.HP = window.HP || {};
     }
 
     // 2. 热气：从汤面升起，越旺的格子越多
-    this.steamAcc += dt * 7 * q;
+    this.steamAcc += dt * 7 * q * (0.4 + g.heatMul * 0.6);
     while (this.steamAcc > 1) {
       this.steamAcc -= 1;
       var cell = Math.random() < 0.45 ? 4 : Math.floor(rand(0, 9));

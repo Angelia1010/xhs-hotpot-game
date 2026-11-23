@@ -33,10 +33,13 @@
   function persona(s) {
     var ratio = s.eaten ? s.perfect / s.eaten : 0;
     if (s.eaten === 0) return ['光看不吃', '锅都快烧干了，你一口没动'];
+    if (s.authentic >= 3) return ['七上八下大师', '重庆人看了都要给你递一瓶冰啤酒'];
     if (s.stolen >= 4) return ['被抢专业户', '老王说今天这顿吃得很满意'];
     if (ratio >= 0.7 && s.perfect >= 6) return ['毛肚刺客', '火候拿捏得比服务员还准'];
     if (s.blocked >= 3) return ['护食狂魔', '谁也别想从你锅里夹走一片肉'];
     if (s.raw >= 3) return ['生吃勇士', '你的肠胃正在给你打电话'];
+    if (s.toastMiss >= 2) return ['领导的眼中钉', '吃得挺香，就是忘了看领导的杯子'];
+    if (s.toastOk >= 2 && ratio >= 0.3) return ['饭局情商王', '涮得好，酒也敬得好'];
     if (s.over >= 4) return ['炖菜大师', '你是来吃火锅的还是来熬汤的'];
     if (ratio >= 0.4) return ['火锅老手', '有点东西，再练练就能出师'];
     return ['火锅新秀', '下次盯紧一点，别光顾着聊天'];
@@ -48,7 +51,8 @@
 
     function haptic(kind) {
       // 小红书容器里换成平台的 vibrateShort；浏览器预览用 navigator.vibrate
-      if (navigator.vibrate) navigator.vibrate(kind === 'perfect' ? 18 : kind === 'block' ? 30 : 8);
+      var ms = { perfect: 18, block: 30, dip: 6, event: 40 }[kind] || 8;
+      if (navigator.vibrate) navigator.vibrate(ms);
     }
 
     var hooks = {
@@ -59,6 +63,13 @@
         else c.className = 'combo';
       },
       onEnd: function (s) { showResult(s); },
+      onEvent: function (type, cfg, on) {
+        var el = $('event');
+        if (on) {
+          $('event-text').textContent = cfg.text; $('event-sub').textContent = cfg.sub;
+          el.className = 'event show ' + type;
+        } else el.className = 'event';
+      },
       onMiss: function () {},
       haptic: haptic
     };
@@ -85,7 +96,8 @@
         im.onload = function () { if (game) layout(); };
         im.src = 'assets/plate/' + id + '.webp';
         var nm = document.createElement('span'); nm.textContent = F.name;
-        el.appendChild(im); el.appendChild(nm); tray.appendChild(el);
+        var tg = document.createElement('em'); tg.className = 'tag ' + F.mode; tg.textContent = F.mode === 'swish' ? '涮' : '煮';
+        el.appendChild(im); el.appendChild(nm); el.appendChild(tg); tray.appendChild(el);
       });
     }
 
@@ -104,19 +116,29 @@
       e.preventDefault();
       audio.unlock();
       var p = pos(e); game.dragStart(el.getAttribute('data-food'), p.x, p.y);
+      dragId = e.pointerId;
       el.classList.add('pressed'); setTimeout(function () { el.classList.remove('pressed'); }, 160);
     });
-    window.addEventListener('pointermove', function (e) { if (game && game.drag) { var p = pos(e); game.dragMove(p.x, p.y); } });
-    window.addEventListener('pointerup', function () { if (game) game.dragEnd(); });
-    window.addEventListener('pointercancel', function () { if (game) game.drag = null; });
+    var dragId = null;
+    window.addEventListener('pointermove', function (e) {
+      if (game && e.pointerId === dragId) { var p = pos(e); game.dragMove(p.x, p.y); }
+    });
+    window.addEventListener('pointerup', function (e) {
+      if (game && e.pointerId === dragId) { dragId = null; game.dragEnd(); }
+    });
+    window.addEventListener('pointercancel', function (e) {
+      if (game && e.pointerId === dragId) { dragId = null; game.dragEnd(); }
+    });
+    // 涮菜的时候可以用另一根手指挡老王的筷子
     canvas.addEventListener('pointerdown', function (e) {
-      if (!game || game.drag) return;
+      if (!game || e.pointerId === dragId || game.drag) return;
       audio.unlock();
       var p = pos(e); game.pointerDown(p.x, p.y);
     });
 
     $('btn-hint').addEventListener('click', function () {
       game.hints = !game.hints; this.classList.toggle('off', !game.hints);
+      $('pro').classList.toggle('show', !game.hints);
     });
     $('btn-sound').addEventListener('click', function () {
       audio.unlock(); this.classList.toggle('off', !audio.toggle());
@@ -126,8 +148,9 @@
       audio.unlock();
       game.reset(); game.running = true;
       $('score').textContent = '0'; $('combo').className = 'combo';
-      $('start').classList.add('hidden'); $('result').classList.add('hidden');
+      $('start').classList.add('hidden'); $('result').classList.add('hidden'); $('event').className = 'event';
     }
+    $('btn-toast').addEventListener('click', function (e) { e.stopPropagation(); game.toast(); });
     $('btn-start').addEventListener('click', start);
     $('btn-again').addEventListener('click', start);
 
@@ -139,7 +162,7 @@
       $('r-combo').textContent = s.bestCombo;
       $('r-stolen').textContent = s.stolen;
       $('r-blocked').textContent = s.blocked;
-      $('r-raw').textContent = s.raw;
+      $('r-authentic').textContent = s.authentic;
       $('result').classList.remove('hidden');
     }
 

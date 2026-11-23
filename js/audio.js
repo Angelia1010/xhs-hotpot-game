@@ -73,6 +73,21 @@ var HP = window.HP = window.HP || {};
     if (perfect) { this.burst(0.09, 'bandpass', 3200, 1.4, 0.6); var self = this; setTimeout(function () { self.burst(0.07, 'bandpass', 2600, 1.4, 0.45); }, 70); }
     else this.burst(0.12, 'bandpass', 1200, 1, 0.35);
   };
+  Audio.prototype.dip = function () { this.burst(0.12, 'lowpass', 1400, 0.8, 0.28); };
+  Audio.prototype.pour = function () { this.burst(1.2, 'bandpass', 700, 0.6, 0.35); };
+  Audio.prototype.whoosh = function () { this.burst(0.7, 'lowpass', 400, 0.5, 0.6); };
+  /* 碰杯：两个高频正弦叠加 */
+  Audio.prototype.clink = function () {
+    if (!this.ctx || !this.on) return;
+    var c = this.ctx, now = c.currentTime, self = this;
+    [2650, 3970].forEach(function (f) {
+      var o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.12, now + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+      o.connect(g); g.connect(self.master); o.start(now); o.stop(now + 0.65);
+    });
+  };
   Audio.prototype.clack = function () { this.burst(0.05, 'highpass', 2500, 1, 0.5); };
   Audio.prototype.toggle = function () {
     this.on = !this.on;

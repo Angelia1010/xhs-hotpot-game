@@ -19,13 +19,18 @@
     <div class="pill score"><span id="score">0</span><small>分</small></div>
   </header>
   <div id="combo" class="combo"></div>
+  <div id="event" class="event">
+    <b id="event-text"></b><small id="event-sub"></small>
+    <button id="btn-toast" class="toast-btn" type="button">干杯</button>
+  </div>
   <div class="tools">
     <button id="btn-hint" class="tool" type="button">火候提示</button>
+    <span id="pro" class="pro">老手 ×1.2</span>
     <button id="btn-sound" class="tool" type="button">声音</button>
   </div>
 
   <footer id="tray" class="tray">
-    <div class="tray-tip">按住盘子拖进锅里 · 点锅里的菜捞起来</div>
+    <div class="tray-tip"><em class="tag drop">煮</em>拖进锅，熟了点它捞起　<em class="tag swish">涮</em>按住上下涮，松手捞起</div>
     <div id="plates" class="plates"></div>
   </footer>
 
@@ -44,6 +49,7 @@
       <ul class="rules">
         <li><b>中间格火最旺</b>，四个角最慢</li>
         <li>盯着菜的颜色和形状，<b>刚好熟就捞</b></li>
+        <li>毛肚要按住<b>七上八下</b>：提起来、放下去，7~8 次</li>
         <li>老王的筷子伸过来时，<b>点它挡开</b></li>
       </ul>
       <button id="btn-start" class="cta" type="button">开吃</button>
@@ -61,7 +67,7 @@
         <div><b id="r-combo">0</b><span>最高连击</span></div>
         <div><b id="r-stolen">0</b><span>被抢走</span></div>
         <div><b id="r-blocked">0</b><span>挡住老王</span></div>
-        <div><b id="r-raw">0</b><span>吃到生的</span></div>
+        <div><b id="r-authentic">0</b><span>正宗七上八下</span></div>
       </div>
       <button id="btn-again" class="cta" type="button">再来一局</button>
     </div>
