@@ -11,7 +11,7 @@ HP.POTS = {
     mul: [1, 1, 1, 1, 1, 1, 1, 1, 1],
     tint: ['120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2', '120,8,2'],
     labels: [[4, '火最大', '#ffd35c'], [0, '火小', '#9fd8ff'], [2, '火小', '#9fd8ff'], [6, '火小', '#9fd8ff'], [8, '火小', '#9fd8ff']],
-    center: [4], corners: [0, 2, 6, 8], edges: [0, 2, 6, 8]
+    center: [4], corners: [0, 2, 6, 8], edges: [0, 2, 6, 8], cap: 2
   },
   yuanyang: {
     name: '鸳鸯锅', img: 'pot_yuanyang', ell: { cx: 0.495, cy: 0.5, rx: 0.352, ry: 0.372 },
@@ -22,7 +22,7 @@ HP.POTS = {
               [0.781, 0.477], [0.830, 0.454], [0.880, 0.437], [0.900, 0.430]],
     heat: [1.25, 0.75], mul: [1, 1.3], tint: ['120,8,2', '150,118,40'],
     labels: [[0, '红汤 熟得快', '#ffd35c'], [1, '清汤 分×1.3', '#ffe9b0']], labelShift: 0.05,
-    center: [0], corners: [1], edges: [0, 1], unlock: 800
+    center: [0], corners: [1], edges: [0, 1], cap: 6, unlock: 800
   }
 };
 HP.POT_ORDER = ['jiugong', 'yuanyang'];
@@ -58,9 +58,15 @@ HP.FOODS = {
   jianshouqing:  { name: '见手青',   mode: 'drop',  a: 10, b: 16,  size: 0.085, price: 30, depth: 0.12, veg: true, unlock: 1000,
                    special: 'trip', tip: '见手青一定要煮熟！没熟就吃会「看见小人」' }
 };
+/* 每道菜的分值系数：涮菜要一直按着、窗口窄，分高；能一次下一锅的便宜煮菜分低 */
+HP.PTS = { beef: 1.3, tenderbeef: 1.4, maodu: 1.2, strawberry_maodu: 1.2, duckintestine: 1.4, goose: 1.4, kidney: 1.3,
+  huanghou: 1.0, shrimp: 1.0, beefball: 0.9, duckblood: 0.9, luncheon: 0.6, tofu: 0.7, potato: 0.6, lotus: 0.7,
+  lettuce: 1.2, gongcai: 1.2, napa: 0.6, enoki: 0.8, shiitake: 0.7, wintermelon: 0.8, jianshouqing: 1.2 };
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
+HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
+HP.BORED = { win: 5, n: 3, mul: 0.4 };   // 最近 5 块里同一道菜占 3 块就「吃腻了」：分数 ×0.4、不涨连击
 HP.BALANCE_BONUS = 80;        // 一局荤素各吃 3 块以上的加分
 
 /* 同桌 NPC：手的素材、从哪一侧伸进来、筷子尖在素材里的位置 */

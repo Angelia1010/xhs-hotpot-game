@@ -20,6 +20,7 @@
       g.setup({ scene: rd.scene, pot: rd.pot, seed: rd.seed || 0 });
       g.mode = 'play'; g.hints = rd.hints !== false; g.reset(); g.running = true;
       var dt = 1 / 30, cool = 0.5, holdPlan = null, frame = 0, maxFx = 0, maxFoods = 0, nan = 0;
+      if (rd.think != null) sk = Object.assign({}, sk, { think: rd.think });
       var npcDecided = {}, toastDecided = null;
       while (g.running && frame < 30 * 100) {
         frame++;
@@ -61,7 +62,7 @@
         }
         // 5. 下新菜
         var inPot = g.foods.filter(function (f) { return f.state === 'in'; }).length;
-        if (!g.hold && !g.drag && cool <= 0 && inPot < sk.cap && g.waitBoss <= 0) {
+        if (!g.hold && !g.drag && cool <= 0 && inPot < (rd.cap || sk.cap) && g.waitBoss <= 0) {
           var type = tray[Math.floor(Math.random() * tray.length)], F = HP.FOODS[type];
           var cell = Math.floor(Math.random() * g.zones.length), sp = g.randomSoupPoint(cell, 0.03), s = g.toScreen(sp.nx, sp.ny);
           g.dragStart(type, s.x, s.y + 200);

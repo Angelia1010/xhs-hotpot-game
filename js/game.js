@@ -64,7 +64,7 @@ var HP = window.HP = window.HP || {};
     zones.forEach(function (z) { z.share = z.area / tot; });
     if (this.fx) { this.fx.glints = []; for (var g = 0; g < 46; g++) this.fx.glints.push(this.fx.randomGlint()); this.fx.bubbles = []; }
   };
-  Game.prototype.heatOf = function (cell) { return this.pot.heat[cell] || 1; };
+  Game.prototype.heatOf = function (cell) { return (this.pot.heat[cell] || 1) * (this.crowd || 1); };
   Game.prototype.dividerX = function (ny) {
     var D = this.pot.divider;
     if (ny <= D[0][0]) return D[0][1];
@@ -169,9 +169,9 @@ var HP = window.HP = window.HP || {};
     this.drag = null; this.hold = null;
     this.stats = { score: 0, combo: 0, bestCombo: 0, perfect: 0, raw: 0, over: 0, eaten: 0, stolen: 0, blocked: 0, spent: 0,
                    authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {},
-                   cellUse: this.zones.map(function () { return 0; }), potId: this.potId, veg: 0, meat: 0, strawberry: 0, trip: 0, enoki: 0, balanced: false, served: 0, servedBad: 0, rude: 0, blockedBoss: 0 };
+                   cellUse: this.zones.map(function () { return 0; }), potId: this.potId, veg: 0, meat: 0, strawberry: 0, trip: 0, enoki: 0, balanced: false, served: 0, servedBad: 0, rude: 0, blockedBoss: 0, bored: 0, recent: [] };
     this.waitBoss = this.scene.bossFirst || 0;
-    this.heatLabels = 0; this.trip = 0;
+    this.heatLabels = 0; this.trip = 0; this.crowd = 1; this.crowdTold = false;
   };
 
   /* 通知外部（教学引导用） */
@@ -195,7 +195,14 @@ var HP = window.HP = window.HP || {};
   Game.prototype.addFood = function (type, nx, ny) {
     var cell = this.cellAt(nx, ny);
     if (cell < 0) return false;
-    var F = HP.FOODS[type];
+    var F = HP.FOODS[type], cap = this.pot.cap || 99, used = 0;
+    for (var i = 0; i < this.foods.length; i++) if (this.foods[i].state === 'in' && this.foods[i].cell === cell) used++;
+    if (used >= cap) {
+      var sp = this.toScreen(nx, ny);
+      this.fx.text(sp.x, sp.y - 20 * this.unit, '这格满了，换一格', '#ffe6b0', 16 * Math.max(0.8, this.unit));
+      this.emit('full', { cell: cell });
+      return 'full';
+    }
     this.foods.push({
       type: type, cell: cell, nx: nx, ny: ny, d: 0, t: 0, ph: rand(0, 6.28),
       rot: rand(-0.5, 0.5), depth: F.sinker ? 0.85 : F.depth, state: 'in', drop: 0.28, id: Math.random()
@@ -244,8 +251,15 @@ var HP = window.HP = window.HP || {};
     if (f.type === 'enoki') s.enoki++;
     s.pickedBy[f.type] = (s.pickedBy[f.type] || 0) + 1;
     if (r.kind === 'perfect') s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1;
-    if (r.kind === 'perfect') { s.combo++; s.perfect++; gain = Math.round(gain * Math.min(3, 1 + (s.combo - 1) * 0.5)); }
-    else s.combo = 0;
+    // 同一道菜连着吃会腻：分数打折，也不涨连击（防止一直下同一道菜刷分）
+    var B = HP.BORED; s.recent.push(f.type); if (s.recent.length > B.win) s.recent.shift();
+    var same = s.recent.filter(function (t) { return t === f.type; }).length, bored = same >= B.n, bm = B.mul;
+    if (gain > 0) gain = Math.round(gain * (HP.PTS[f.type] || 1));
+    if (r.kind === 'perfect') {
+      if (!bored) s.combo++;
+      s.perfect++; gain = Math.round(gain * Math.max(1, Math.min(3, 1 + (s.combo - 1) * 0.5)));
+    } else s.combo = 0;
+    if (bored && gain > 0) { gain = Math.round(gain * bm); s.bored++; }
     if (r.authentic) s.authentic++;
     if (r.kind === 'raw') s.raw++;
     if (r.kind === 'over') s.over++;
@@ -268,7 +282,8 @@ var HP = window.HP = window.HP || {};
     s.bestCombo = Math.max(s.bestCombo, s.combo); s.eaten++;
     s.score = Math.max(0, s.score + gain);
     this.fx.text(x, y - 26 * this.unit, r.label + (gain >= 0 ? ' +' + gain : ' ' + gain), r.color, 20 * big);
-    if (s.combo >= 2 && r.kind === 'perfect') this.fx.text(x, y - 52 * this.unit, s.combo + ' 连击 ×' + Math.min(3, 1 + (s.combo - 1) * 0.5).toFixed(1), '#ffd35c', 16 * big);
+    if (bored) this.fx.text(x, y - 52 * this.unit, '吃腻了，换道菜吧', '#ffb38a', 15 * big);
+    else if (s.combo >= 2 && r.kind === 'perfect') this.fx.text(x, y - 52 * this.unit, s.combo + ' 连击 ×' + Math.min(3, 1 + (s.combo - 1) * 0.5).toFixed(1), '#ffd35c', 16 * big);
     if (this.audio) this.audio.crunch(r.kind === 'perfect');
     if (this.hooks.onScore) this.hooks.onScore(s, r);
     if (this.hooks.haptic) this.hooks.haptic(r.kind);
@@ -298,7 +313,7 @@ var HP = window.HP = window.HP || {};
     if (this.hold) { this.releaseHold(); return; }
     if (!this.drag) return;
     var d = this.drag, pt = this.dragPoint(d), n = this.toNorm(pt.x, pt.y);
-    if (!this.addFood(d.type, n.nx, n.ny) && this.hooks.onMiss) this.hooks.onMiss();
+    if (this.addFood(d.type, n.nx, n.ny) === false && this.hooks.onMiss) this.hooks.onMiss();
     this.drag = null;
   };
 
@@ -534,6 +549,15 @@ var HP = window.HP = window.HP || {};
       this.timeLeft = Math.max(0, HP.ROUND_TIME - this.elapsed);
     }
 
+    // 下太多菜，汤温下降：每多一块，所有格子火力都变小
+    var nIn = this.hold && this.hold.entered ? 1 : 0;
+    for (var j = 0; j < this.foods.length; j++) if (this.foods[j].state === 'in') nIn++;
+    var C = HP.CROWD, want = nIn <= C.free ? 1 : Math.max(C.min, C.free / nIn);
+    this.crowd += (want - this.crowd) * Math.min(1, dt * 2);
+    if (want < 0.8 && !this.crowdTold && !tut) {
+      this.crowdTold = true;
+      this.fx.text(this.W / 2, this.potY + this.potSize * 0.12, '菜下太多，汤都不滚了', '#9fd8ff', 18 * Math.max(0.8, this.unit));
+    }
     for (var i = this.foods.length - 1; i >= 0; i--) {
       var f = this.foods[i], F = HP.FOODS[f.type];
       if (f.drop > 0) f.drop = Math.max(0, f.drop - dt);
