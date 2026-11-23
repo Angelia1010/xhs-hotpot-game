@@ -1,6 +1,6 @@
-/* 启动：加载素材、搭界面、主循环、开始/结算页。 */
+/* 启动：加载素材、搭界面、主循环、教学、开始页和结算卡。 */
 (function () {
-  var HP = window.HP;
+  var HP = window.HP, P = HP.platform;
   var $ = function (id) { return document.getElementById(id); };
 
   function loadImage(src) {
@@ -13,11 +13,11 @@
   }
 
   function loadAll(onProgress) {
-    var jobs = [], images = { scene: {}, food: {}, plate: {} }, done = 0, total;
-    HP.ASSETS.scene.forEach(function (n) { jobs.push(['scene', n, 'assets/scene/' + n + '.webp']); });
+    var jobs = [], images = { scene: {}, food: {} }, done = 0, total;
+    HP.ASSETS.scene.forEach(function (n) { jobs.push(['scene', n, 'img/scene/' + n + '.webp']); });
     HP.FOOD_ORDER.forEach(function (n) {
       images.food[n] = [];
-      for (var i = 0; i < 3; i++) jobs.push(['food', n, 'assets/food/' + n + '_' + i + '.webp', i]);
+      for (var i = 0; i < 3; i++) jobs.push(['food', n, 'img/food/' + n + '_' + i + '.webp', i]);
     });
     total = jobs.length;
     return Promise.all(jobs.map(function (j) {
@@ -29,6 +29,7 @@
   }
 
   function fmt(t) { var s = Math.ceil(t); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function today() { var d = new Date(); return d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate(); }
 
   function persona(s) {
     var ratio = s.eaten ? s.perfect / s.eaten : 0;
@@ -47,14 +48,17 @@
 
   function init() {
     var canvas = $('cv'), app = $('app'), tray = $('plates'), hud = $('hud');
-    var audio = new HP.Audio(), game;
+    var audio = new HP.Audio(), game, tutorial, images;
+    var profile = { tutorialDone: false, best: 0, games: 0 };
+    var insets = { top: 0, bottom: 0 };
+    var cardUrl = null, msgTimer = null;
 
-    function haptic(kind) {
-      // 小红书容器里换成平台的 vibrateShort；浏览器预览用 navigator.vibrate
-      var ms = { perfect: 18, block: 30, dip: 6, event: 40 }[kind] || 8;
-      if (navigator.vibrate) navigator.vibrate(ms);
+    function msg(text) {
+      var el = $('msg'); el.textContent = text; el.className = 'msg show';
+      clearTimeout(msgTimer); msgTimer = setTimeout(function () { el.className = 'msg'; }, 1800);
     }
 
+    var VIB = { perfect: 'medium', block: 'heavy', dip: 'light', event: 'heavy', raw: 'light', ok: 'light', over: 'light' };
     var hooks = {
       onScore: function (s) {
         $('score').textContent = s.score;
@@ -62,74 +66,110 @@
         if (s.combo >= 2) { c.textContent = s.combo + ' 连击'; c.className = 'combo show'; }
         else c.className = 'combo';
       },
-      onEnd: function (s) { showResult(s); },
+      onEnd: function (s) { finishRound(s); },
       onEvent: function (type, cfg, on) {
         var el = $('event');
-        if (on) {
-          $('event-text').textContent = cfg.text; $('event-sub').textContent = cfg.sub;
-          el.className = 'event show ' + type;
-        } else el.className = 'event';
+        if (on) { $('event-text').textContent = cfg.text; $('event-sub').textContent = cfg.sub; el.className = 'event show ' + type; }
+        else el.className = 'event';
       },
-      onMiss: function () {},
-      haptic: haptic
+      onAction: function (name, d) { if (tutorial && game.mode === 'tutorial') tutorial.onAction(name, d); },
+      haptic: function (kind) { P.vibrate(VIB[kind] || 'light'); }
     };
 
-    $('loadbar').style.width = '0%';
-    loadAll(function (p) { $('loadbar').style.width = Math.round(p * 100) + '%'; }).then(function (images) {
+    /* ---------- 启动：存档 + 安全区 + 素材 ---------- */
+    Promise.all([
+      P.load('profile').then(function (p) { if (p) for (var k in p) if (p.hasOwnProperty(k)) profile[k] = p[k]; }),
+      P.getInsets().then(function (r) { if (r) insets = r; })
+    ]).then(function () {
+      return loadAll(function (p) { $('loadbar').style.width = Math.round(p * 100) + '%'; });
+    }).then(function (imgs) {
+      images = imgs;
       game = new HP.Game(canvas, images, hooks);
       game.audio = audio;
       HP.game = game; // 方便调试
-      buildTray(images);
+      tutorial = new HP.Tutorial(game, coachUI);
+      buildTray();
       layout();
       $('loading').classList.add('hidden');
-      $('start').classList.remove('hidden');
+      showStart();
       requestAnimationFrame(loop);
     }).catch(function (e) { $('loadtext').textContent = e.message; });
 
-    function buildTray(images) {
+    function saveProfile() { P.save('profile', profile); }
+
+    function buildTray() {
       tray.innerHTML = '';
       HP.FOOD_ORDER.forEach(function (id) {
         var F = HP.FOODS[id], el = document.createElement('div');
-        el.className = 'plate'; el.setAttribute('data-food', id);
+        el.className = 'plate'; el.setAttribute('data-food', id); el.id = 'plate-' + id;
         var im = document.createElement('img'); im.alt = F.name; im.draggable = false;
         // 盘子图加载完托盘才有真实高度，此时重新排版，锅才会居中
         im.onload = function () { if (game) layout(); };
-        im.src = 'assets/plate/' + id + '.webp';
+        im.src = 'img/plate/' + id + '.webp';
         var nm = document.createElement('span'); nm.textContent = F.name;
         var tg = document.createElement('em'); tg.className = 'tag ' + F.mode; tg.textContent = F.mode === 'swish' ? '涮' : '煮';
         el.appendChild(im); el.appendChild(nm); el.appendChild(tg); tray.appendChild(el);
       });
     }
 
+    /* 排版：避开小红书右上角胶囊按钮和底部安全区 */
     function layout() {
       var w = app.clientWidth, h = app.clientHeight;
-      var top = hud.offsetHeight + 6, bottom = h - $('tray').offsetHeight - 4;
-      game.layout(w, h, top, bottom);
+      if (insets.top) hud.style.paddingTop = (insets.top + 6) + 'px';
+      if (insets.bottom) $('tray').style.paddingBottom = (insets.bottom + 8) + 'px';
+      var hudH = hud.offsetHeight, trayH = $('tray').offsetHeight;
+      $('combo').style.top = (hudH + 2) + 'px';
+      $('tools').style.top = (hudH + 8) + 'px';
+      // 突发事件横幅放在锅和托盘交界处，不挡锅的上半部分
+      $('event').style.bottom = (trayH - 30) + 'px';
+      $('coach').style.bottom = (trayH + 6) + 'px';
+      game.layout(w, h, hudH + 6, h - trayH - 4);
     }
     window.addEventListener('resize', function () { if (game) layout(); });
 
-    /* ---------- 触控 ---------- */
+    /* ---------- 教学引导的界面 ---------- */
+    var coachUI = {
+      say: function (title, html, opt) {
+        $('coach').className = 'coach';
+        $('coach-title').textContent = title; $('coach-text').innerHTML = html;
+        $('coach-btn').className = 'cta small' + (opt && opt.button ? '' : ' hidden');
+        if (opt && opt.button) $('coach-btn').textContent = opt.button;
+      },
+      glow: function (id) {
+        var els = tray.querySelectorAll('.plate');
+        for (var i = 0; i < els.length; i++) els[i].classList.toggle('glow', els[i].getAttribute('data-food') === id);
+      },
+      plateCenter: function (id) {
+        var el = $('plate-' + id), r = el.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+        return { x: r.left - c.left + r.width / 2, y: r.top - c.top + r.width * 0.45 };
+      }
+    };
+    function endTutorial() {
+      tutorial.stop(); $('coach').className = 'coach hidden';
+      profile.tutorialDone = true; saveProfile();
+      startRound();
+    }
+    $('coach-btn').addEventListener('click', endTutorial);
+    $('coach-skip').addEventListener('click', endTutorial);
+
+    /* ---------- 触控（支持多指：涮菜时另一根手指可以挡筷子） ---------- */
     function pos(e) { var r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    var dragId = null;
     tray.addEventListener('pointerdown', function (e) {
       var el = e.target.closest ? e.target.closest('.plate') : null;
-      if (!el || !game || !game.running) return;
+      if (!el || !game || !game.running || dragId !== null) return;
       e.preventDefault();
       audio.unlock();
       var p = pos(e); game.dragStart(el.getAttribute('data-food'), p.x, p.y);
       dragId = e.pointerId;
       el.classList.add('pressed'); setTimeout(function () { el.classList.remove('pressed'); }, 160);
     });
-    var dragId = null;
     window.addEventListener('pointermove', function (e) {
       if (game && e.pointerId === dragId) { var p = pos(e); game.dragMove(p.x, p.y); }
     });
-    window.addEventListener('pointerup', function (e) {
-      if (game && e.pointerId === dragId) { dragId = null; game.dragEnd(); }
-    });
-    window.addEventListener('pointercancel', function (e) {
-      if (game && e.pointerId === dragId) { dragId = null; game.dragEnd(); }
-    });
-    // 涮菜的时候可以用另一根手指挡老王的筷子
+    function endDrag(e) { if (game && e.pointerId === dragId) { dragId = null; game.dragEnd(); } }
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
     canvas.addEventListener('pointerdown', function (e) {
       if (!game || e.pointerId === dragId || game.drag) return;
       audio.unlock();
@@ -143,28 +183,60 @@
     $('btn-sound').addEventListener('click', function () {
       audio.unlock(); this.classList.toggle('off', !audio.toggle());
     });
-
-    function start() {
-      audio.unlock();
-      game.reset(); game.running = true;
-      $('score').textContent = '0'; $('combo').className = 'combo';
-      $('start').classList.add('hidden'); $('result').classList.add('hidden'); $('event').className = 'event';
-    }
     $('btn-toast').addEventListener('click', function (e) { e.stopPropagation(); game.toast(); });
-    $('btn-start').addEventListener('click', start);
-    $('btn-again').addEventListener('click', start);
 
-    function showResult(s) {
+    /* ---------- 开始 / 一局 / 结算 ---------- */
+    function showStart() {
+      $('best').textContent = profile.best ? '个人最高 ' + profile.best + ' 分' : '';
+      $('start').classList.remove('hidden');
+    }
+    function hideOverlays() {
+      $('start').classList.add('hidden'); $('result').classList.add('hidden');
+      $('event').className = 'event'; $('combo').className = 'combo'; $('score').textContent = '0';
+    }
+    function startRound() {
+      audio.unlock(); hideOverlays();
+      game.reset(); game.mode = 'play'; game.running = true;
+    }
+    function startTutorial() {
+      audio.unlock(); hideOverlays();
+      tutorial.start();
+    }
+    $('btn-start').addEventListener('click', function () {
+      if (!profile.tutorialDone) startTutorial(); else startRound();
+    });
+    $('btn-tutorial').addEventListener('click', startTutorial);
+    $('btn-again').addEventListener('click', startRound);
+
+    function finishRound(s) {
+      var isBest = s.score > (profile.best || 0) && s.score > 0;
+      profile.games = (profile.games || 0) + 1;
+      if (isBest) profile.best = s.score;
+      saveProfile();
       var p = persona(s);
-      $('r-title').textContent = p[0]; $('r-sub').textContent = p[1];
-      $('r-score').textContent = s.score;
-      $('r-perfect').textContent = s.perfect;
-      $('r-combo').textContent = s.bestCombo;
-      $('r-stolen').textContent = s.stolen;
-      $('r-blocked').textContent = s.blocked;
-      $('r-authentic').textContent = s.authentic;
+      cardUrl = HP.renderCard(images, s, p, { date: today(), scene: '兄弟局 · 九宫格', isBest: isBest });
+      $('r-img').src = cardUrl;
+      $('save-tip').textContent = '';
+      $('btn-share').classList.toggle('hidden', !P.canShare);
       $('result').classList.remove('hidden');
     }
+
+    /* 保存：小红书里直接存相册；浏览器预览里提示长按图片保存 */
+    $('btn-save').addEventListener('click', function () {
+      if (!cardUrl) return;
+      P.saveImage(cardUrl).then(function () {
+        msg('已保存到相册，去发笔记吧');
+      }).catch(function (e) {
+        if (e && e.message === 'browser') $('save-tip').textContent = '长按上面的图片即可保存';
+        else msg('保存失败，请检查相册权限');
+      });
+    });
+    $('btn-share').addEventListener('click', function () {
+      P.share(cardUrl).catch(function (e) {
+        var code = e && (e.errCode || e.code);
+        msg(code === 15503 ? '今天分享次数用完啦' : '暂时无法分享，可以先保存图片');
+      });
+    });
 
     /* ---------- 主循环（低端机自动降特效） ---------- */
     var last = 0, slow = 0;
@@ -175,10 +247,10 @@
       game.update(dt);
       game.render();
       if (game.running) {
-        $('time').textContent = fmt(game.timeLeft);
-        var k = game.timeLeft / HP.ROUND_TIME;
-        $('ring').style.strokeDashoffset = (113 * (1 - k)).toFixed(1);
-        $('timer').classList.toggle('urgent', game.timeLeft <= 10);
+        var tl = game.mode === 'tutorial' ? HP.ROUND_TIME : game.timeLeft;
+        $('time').textContent = fmt(tl);
+        $('ring').style.strokeDashoffset = (113 * (1 - tl / HP.ROUND_TIME)).toFixed(1);
+        $('timer').classList.toggle('urgent', game.mode === 'play' && tl <= 10);
       }
       requestAnimationFrame(loop);
     }

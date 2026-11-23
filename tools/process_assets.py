@@ -1,5 +1,5 @@
 """把 GPT 生成的原图处理成游戏用的 webp 素材。
-用法: python3 tools/process_assets.py <原图目录> <输出 assets 目录>"""
+用法: python3 tools/process_assets.py <原图目录> <输出 img 目录>"""
 import sys, os, json
 from PIL import Image
 import numpy as np

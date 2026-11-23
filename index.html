@@ -19,11 +19,7 @@
     <div class="pill score"><span id="score">0</span><small>分</small></div>
   </header>
   <div id="combo" class="combo"></div>
-  <div id="event" class="event">
-    <b id="event-text"></b><small id="event-sub"></small>
-    <button id="btn-toast" class="toast-btn" type="button">干杯</button>
-  </div>
-  <div class="tools">
+  <div id="tools" class="tools">
     <button id="btn-hint" class="tool" type="button">火候提示</button>
     <span id="pro" class="pro">老手 ×1.2</span>
     <button id="btn-sound" class="tool" type="button">声音</button>
@@ -34,10 +30,24 @@
     <div id="plates" class="plates"></div>
   </footer>
 
+  <div id="event" class="event">
+    <b id="event-text"></b><small id="event-sub"></small>
+    <button id="btn-toast" class="toast-btn" type="button">干杯</button>
+  </div>
+
+  <div id="coach" class="coach hidden">
+    <small id="coach-title"></small>
+    <p id="coach-text"></p>
+    <button id="coach-btn" class="cta small hidden" type="button">开吃</button>
+    <button id="coach-skip" class="skip" type="button">跳过教学</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+
   <section id="loading" class="overlay">
     <div class="card">
       <h1>火锅局</h1>
-      <p id="loadtext">正在烧锅底…</p>
+      <p id="loadtext" class="sub">正在烧锅底…</p>
       <div class="bar"><i id="loadbar"></i></div>
     </div>
   </section>
@@ -50,33 +60,35 @@
         <li><b>中间格火最旺</b>，四个角最慢</li>
         <li>盯着菜的颜色和形状，<b>刚好熟就捞</b></li>
         <li>毛肚要按住<b>七上八下</b>：提起来、放下去，7~8 次</li>
-        <li>老王的筷子伸过来时，<b>点它挡开</b></li>
+        <li>同桌的筷子伸过来时，<b>点它挡开</b></li>
       </ul>
+      <p id="best" class="best"></p>
       <button id="btn-start" class="cta" type="button">开吃</button>
+      <button id="btn-tutorial" class="link" type="button">新手教学</button>
     </div>
   </section>
 
   <section id="result" class="overlay hidden">
-    <div class="card result">
-      <small class="eyebrow">本局人格</small>
-      <h1 id="r-title">毛肚刺客</h1>
-      <p id="r-sub" class="sub"></p>
-      <div class="big"><span id="r-score">0</span><small>分</small></div>
-      <div class="stats">
-        <div><b id="r-perfect">0</b><span>完美火候</span></div>
-        <div><b id="r-combo">0</b><span>最高连击</span></div>
-        <div><b id="r-stolen">0</b><span>被抢走</span></div>
-        <div><b id="r-blocked">0</b><span>挡住老王</span></div>
-        <div><b id="r-authentic">0</b><span>正宗七上八下</span></div>
+    <div class="result-wrap">
+      <img id="r-img" class="r-img" alt="饭局报告">
+      <p id="save-tip" class="save-tip"></p>
+      <div class="r-actions">
+        <button id="btn-save" class="cta" type="button">保存饭局报告</button>
+        <div class="r-row">
+          <button id="btn-share" class="ghost hidden" type="button">分享给好友</button>
+          <button id="btn-again" class="ghost" type="button">再来一局</button>
+        </div>
       </div>
-      <button id="btn-again" class="cta" type="button">再来一局</button>
     </div>
   </section>
 </div>
 <script src="js/config.js"></script>
+<script src="js/platform.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
+<script src="js/card.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

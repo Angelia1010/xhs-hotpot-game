@@ -18,6 +18,7 @@ var HP = window.HP = window.HP || {};
     this.scratch = document.createElement('canvas'); this.sctx = this.scratch.getContext('2d');
     this.foods = []; this.npcs = []; this.drag = null; this.hold = null; this.lift = [];
     this.hints = true; this.running = false; this.time = 0;
+    this.mode = 'play'; this.ghost = null; this.tutorialHeat = 1;
     this.audio = null;
     this.buildCells();
     this.fx = new HP.FX(this);
@@ -97,8 +98,11 @@ var HP = window.HP = window.HP || {};
     this.event = null; this.lastEvent = null; this.shake = 0;
     this.drag = null; this.hold = null;
     this.stats = { score: 0, combo: 0, bestCombo: 0, perfect: 0, raw: 0, over: 0, eaten: 0, stolen: 0, blocked: 0, spent: 0,
-                   authentic: 0, toastOk: 0, toastMiss: 0 };
+                   authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {} };
   };
+
+  /* 通知外部（教学引导用） */
+  Game.prototype.emit = function (name, data) { if (this.hooks.onAction) this.hooks.onAction(name, data || {}); };
 
   Game.prototype.rate = function (f) {
     var F = HP.FOODS[f.type], d = f.d;
@@ -124,6 +128,7 @@ var HP = window.HP = window.HP || {};
       rot: rand(-0.5, 0.5), depth: F.sinker ? 0.85 : F.depth, state: 'in', drop: 0.28, id: Math.random()
     });
     this.stats.spent += F.price;
+    this.emit('drop', { type: type });
     this.fx.splash(nx, ny, 1);
     if (this.audio) this.audio.splash();
     return true;
@@ -155,6 +160,8 @@ var HP = window.HP = window.HP || {};
   Game.prototype.award = function (f, x, y) {
     var r = this.rate(f), s = this.stats;
     var gain = r.score;
+    s.pickedBy[f.type] = (s.pickedBy[f.type] || 0) + 1;
+    if (r.kind === 'perfect') s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1;
     if (r.kind === 'perfect') { s.combo++; s.perfect++; gain = Math.round(gain * Math.min(3, 1 + (s.combo - 1) * 0.5)); }
     else s.combo = 0;
     if (r.authentic) s.authentic++;
@@ -177,7 +184,8 @@ var HP = window.HP = window.HP || {};
     f.state = 'lift';
     var p = this.toScreen(f.nx, f.ny);
     this.lift.push({ f: f, t: 0, x0: p.x, y0: p.y });
-    this.award(f, p.x, p.y);
+    var r = this.award(f, p.x, p.y);
+    this.emit('pick', { type: f.type, kind: r.kind });
     for (var i = 0; i < this.npcs.length; i++) if (this.npcs[i].target === f && this.npcs[i].phase !== 'retreat') this.cancelNpc(this.npcs[i], '手慢了~');
   };
 
@@ -206,6 +214,7 @@ var HP = window.HP = window.HP || {};
     if (cell >= 0 && !h.entered) {
       h.entered = true; h.up = false; h.ext = pt.y; h.settle = 0.3;
       this.stats.spent += F.price;
+      this.emit('holdEnter', { type: h.type });
       this.fx.splash(n.nx, n.ny, 0.7); if (this.audio) this.audio.splash();
     }
     if (!h.entered) return;
@@ -234,11 +243,12 @@ var HP = window.HP = window.HP || {};
   };
   Game.prototype.releaseHold = function () {
     var h = this.hold; this.hold = null;
-    if (!h || !h.entered) return;            // 还没下锅就松手：放回盘子，不扣钱
+    if (!h || !h.entered) { this.emit('holdCancel', {}); return; }   // 还没下锅就松手：放回盘子，不扣钱
     var pt = this.dragPoint(h);
     var f = { type: h.type, d: h.d, dips: HP.FOODS[h.type].dips ? h.dips : null, rot: h.rot, state: 'lift' };
     this.lift.push({ f: f, t: 0, x0: pt.x, y0: pt.y });
-    this.award(f, pt.x, pt.y);
+    var r = this.award(f, pt.x, pt.y);
+    this.emit('holdRelease', { type: h.type, kind: r.kind, dips: h.dips });
   };
 
   /* 拖动时食材显示在手指上方，避免被手指挡住 */
@@ -259,16 +269,22 @@ var HP = window.HP = window.HP || {};
       var A = HP.FOODS[a.type], B = HP.FOODS[b.type];
       return Math.abs(a.d - (A.a + A.b) / 2) - Math.abs(b.d - (B.a + B.b) / 2);
     });
-    var n = idle[Math.floor(Math.random() * idle.length)], f = cands[0], D = DIRS[n.cfg.side];
-    f.targeted = true;
-    n.target = f; n.phase = 'warn'; n.t = 0; n.dir = D; n.rot = D.rot;
-    n.reach = this.potSize * 0.95;
+    var n = idle[Math.floor(Math.random() * idle.length)];
+    // 玩家正按着涮菜、腾不出手时，给更长的反应时间
+    this.sendNpc(n, cands[0], this.hold ? 1.7 : 1);
     var ph = this.phase(); this.nextNpc = rand(ph.npc[0], ph.npc[1]);
+  };
+  Game.prototype.sendNpc = function (n, f, warnMul) {
+    var D = DIRS[n.cfg.side];
+    f.targeted = true;
+    n.target = f; n.phase = 'warn'; n.t = 0; n.dir = D; n.rot = D.rot; n.warn = HP.NPC_WARN * (warnMul || 1);
+    n.reach = this.potSize * 0.95;
     var p = this.toScreen(f.nx, f.ny);
     this.fx.text(p.x, p.y - 34 * this.unit, n.cfg.name + '盯上了！', '#ffcf6b', 15 * Math.max(0.8, this.unit));
   };
   Game.prototype.blockNpc = function (n) {
     this.stats.blocked++;
+    this.emit('block', { npc: n.cfg.name });
     var p = n.tip;
     this.fx.text(p.x, p.y, '挡住了！', '#ffffff', 20 * Math.max(0.8, this.unit));
     if (this.audio) this.audio.clack();
@@ -282,6 +298,15 @@ var HP = window.HP = window.HP || {};
     n.carry = null; n.target = null; n.phase = 'retreat'; n.t = 0; n.from = n.tip;
   };
 
+  /* 预警时筷子尖离目标多远（占伸手距离的比例），保证筷子尖停在锅边、屏幕内 */
+  Game.prototype.warnK = function (n, T) {
+    var m = 14 * this.unit, room;
+    if (n.dir.y < 0) room = T.y - Math.max(this.potY + m, m);
+    else if (n.dir.x < 0) room = T.x - Math.max(this.potX + m, m);
+    else room = Math.min(this.potX + this.potSize - m, this.W - m) - T.x;
+    return clamp(room / n.reach, 0.16, 0.62);
+  };
+
   Game.prototype.updateNpcs = function (dt) {
     for (var i = 0; i < this.npcs.length; i++) {
       var n = this.npcs[i]; if (n.phase === 'idle') continue;
@@ -289,16 +314,18 @@ var HP = window.HP = window.HP || {};
       var f = n.target, T = f ? this.toScreen(f.nx, f.ny) : n.tip;
       var out = function (k) { return { x: T.x + n.dir.x * n.reach * k, y: T.y + n.dir.y * n.reach * k }; };
       if (n.phase === 'warn') {
-        // 筷子先在锅边探出来，晃一晃，给玩家反应时间
-        var k = 0.62 + Math.sin(n.t * 9) * 0.015 + (1 - easeOut(Math.min(1, n.t / 0.35))) * 0.4;
+        // 筷子先在锅边探出来，晃一晃，给玩家反应时间；预警位置必须在屏幕内看得见、点得到
+        var k = this.warnK(n, T) + Math.sin(n.t * 9) * 0.015 + (1 - easeOut(Math.min(1, n.t / 0.35))) * 0.4;
         n.tip = out(k);
-        if (n.t >= HP.NPC_WARN) { n.phase = 'reach'; n.t = 0; n.from = n.tip; }
+        if (n.t >= (n.warn || HP.NPC_WARN)) { n.phase = 'reach'; n.t = 0; n.from = n.tip; }
       } else if (n.phase === 'reach') {
-        var t = easeOut(Math.min(1, n.t / 0.32)), o = out(0.62);
+        var t = easeOut(Math.min(1, n.t / 0.32)), o = out(this.warnK(n, T));
         n.tip = { x: lerp(o.x, T.x, t), y: lerp(o.y, T.y, t) };
         if (n.t >= 0.32) {
           n.phase = 'grab'; n.t = 0;
           f.state = 'stolen'; n.carry = f; this.stats.stolen++; this.stats.combo = 0;
+          this.stats.stolenBy[f.type] = (this.stats.stolenBy[f.type] || 0) + 1;
+          this.emit('stolen', { type: f.type, npc: n.cfg.name });
           this.fx.splash(f.nx, f.ny, 0.6);
           this.fx.text(T.x, T.y - 30 * this.unit, n.cfg.name + '抢走了' + HP.FOODS[f.type].name + '！', '#ff9b7a', 16 * Math.max(0.8, this.unit));
           if (this.audio) this.audio.clack();
@@ -385,8 +412,12 @@ var HP = window.HP = window.HP || {};
     this.shake = Math.max(0, this.shake - dt);
     this.fx.update(dt);
     if (!this.running) return;
-    this.elapsed += dt;
-    this.timeLeft = Math.max(0, HP.ROUND_TIME - this.elapsed);
+    var tut = this.mode === 'tutorial';
+    if (tut) this.heatTarget = this.tutorialHeat;
+    else {
+      this.elapsed += dt;
+      this.timeLeft = Math.max(0, HP.ROUND_TIME - this.elapsed);
+    }
 
     for (var i = this.foods.length - 1; i >= 0; i--) {
       var f = this.foods[i], F = HP.FOODS[f.type];
@@ -405,12 +436,15 @@ var HP = window.HP = window.HP || {};
 
     this.updateHold(dt);
 
-    this.nextNpc -= dt;
-    if (this.nextNpc <= 0) this.scheduleNpc();
+    if (!tut) {
+      this.nextNpc -= dt;
+      if (this.nextNpc <= 0) this.scheduleNpc();
+      this.updateEvents(dt);
+    }
     this.updateNpcs(dt);
-    this.updateEvents(dt);
+    if (this.ghost) this.ghost.t += dt;
 
-    if (this.timeLeft <= 0) { this.running = false; this.drag = null; if (this.hold) this.releaseHold(); this.endEvent(); if (this.hooks.onEnd) this.hooks.onEnd(this.stats); }
+    if (!tut && this.timeLeft <= 0) { this.running = false; this.drag = null; if (this.hold) this.releaseHold(); this.endEvent(); if (this.hooks.onEnd) this.hooks.onEnd(this.stats); }
   };
 
   /* ---------- 绘制 ---------- */
@@ -516,6 +550,37 @@ var HP = window.HP = window.HP || {};
     ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
   }
 
+  /* 教学里的「幽灵手指」：示范拖动、点击、上下涮 */
+  Game.prototype.drawGhost = function (ctx) {
+    var g = this.ghost; if (!g) return;
+    var pts = typeof g.points === 'function' ? g.points() : g.points;
+    if (!pts || !pts[0]) return;
+    var u = this.unit, t = g.t, x = pts[0].x, y = pts[0].y, a = 1, press = 0;
+    if (g.mode === 'drag' && pts[1]) {
+      var cyc = t % 2.2, k = clamp((cyc - 0.35) / 1.1, 0, 1), e = k * k * (3 - 2 * k);
+      x = lerp(pts[0].x, pts[1].x, e); y = lerp(pts[0].y, pts[1].y, e);
+      press = cyc > 0.2 && cyc < 1.9 ? 1 : 0;
+      a = cyc > 1.9 ? 1 - (cyc - 1.9) / 0.3 : 1;
+      ctx.save(); ctx.globalAlpha = 0.35; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 * u; ctx.setLineDash([6 * u, 6 * u]);
+      ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[1].x, pts[1].y); ctx.stroke(); ctx.restore();
+    } else if (g.mode === 'updown') {
+      y = pts[0].y - Math.abs(Math.sin(t * 3.2)) * 40 * u; press = 1;
+    } else {
+      press = (t % 1) < 0.25 ? 1 : 0;
+      var ring = (t % 1);
+      ctx.save(); ctx.globalAlpha = 1 - ring; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 * u;
+      ctx.beginPath(); ctx.arc(x, y, (14 + ring * 26) * u, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    ctx.save();
+    ctx.globalAlpha = 0.9 * a;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 10 * u;
+    ctx.beginPath(); ctx.arc(x, y, (press ? 13 : 16) * u, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.strokeStyle = '#ffab1f'; ctx.lineWidth = 3 * u;
+    ctx.beginPath(); ctx.arc(x, y, (press ? 13 : 16) * u, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  };
+
   Game.prototype.render = function () {
     var ctx = this.ctx, S = this.img.scene, i, f, p;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -605,5 +670,6 @@ var HP = window.HP = window.HP || {};
 
     this.fx.drawSteam(ctx, this.time);
     this.fx.drawTexts(ctx);
+    this.drawGhost(ctx);
   };
 })();

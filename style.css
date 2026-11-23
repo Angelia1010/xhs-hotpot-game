@@ -57,8 +57,8 @@ body {
 
 /* 突发事件横幅 */
 .event {
-  position: absolute; z-index: 3; left: 50%; top: 104px; top: calc(104px + env(safe-area-inset-top));
-  transform: translate(-50%, -20px); opacity: 0; pointer-events: none; transition: all 0.25s;
+  position: absolute; z-index: 3; left: 50%; bottom: 200px;
+  transform: translate(-50%, 20px); opacity: 0; pointer-events: none; transition: all 0.25s;
   min-width: 230px; padding: 9px 16px; border-radius: 16px; text-align: center;
   background: linear-gradient(160deg, rgba(150,25,8,0.95), rgba(70,10,3,0.95));
   border: 1px solid rgba(255,200,140,0.4); box-shadow: 0 10px 26px rgba(0,0,0,0.5);
@@ -92,7 +92,7 @@ body {
 .tag.swish { background: #ffab1f; color: #3a0d00; }
 .plate { position: relative; }
 .plate .tag { position: absolute; top: 2px; right: 8%; }
-.plates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 6px; }
+.plates { display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 4px 6px; }
 .plate { display: flex; flex-direction: column; align-items: center; touch-action: none; cursor: grab; }
 .plate img { width: 100%; max-width: 86px; height: auto; filter: drop-shadow(0 5px 6px rgba(0,0,0,0.5)); transition: transform 0.15s; pointer-events: none; }
 .plate span { font-size: 12px; font-weight: 700; margin-top: -2px; text-shadow: 0 1px 3px #000; }
@@ -130,7 +130,53 @@ body {
 .result .big { margin: 14px 0 10px; }
 .result .big span { font-size: 46px; font-weight: 900; color: #ffd35c; font-variant-numeric: tabular-nums; }
 .result .big small { font-size: 14px; opacity: 0.7; margin-left: 2px; }
-.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); grid-gap: 8px; margin-bottom: 18px; }
 .stats div { padding: 8px 2px; border-radius: 10px; background: rgba(0,0,0,0.25); }
 .stats b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
 .stats span { font-size: 10px; opacity: 0.75; }
+
+/* ---------- 新手引导 ---------- */
+.coach {
+  position: absolute; z-index: 4; left: 12px; right: 12px; bottom: 220px;
+  padding: 12px 16px 10px; border-radius: 18px; text-align: center;
+  background: rgba(20,5,2,0.86); border: 1px solid rgba(255,200,140,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: opacity 0.25s, transform 0.25s;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.coach.hidden { opacity: 0; transform: translateY(12px); pointer-events: none; }
+.coach small { display: block; font-size: 11px; letter-spacing: 1px; color: #ffb347; font-weight: 800; }
+.coach p { margin-top: 4px; font-size: 15px; line-height: 1.5; }
+.coach p b { color: #ffd35c; }
+.coach .skip { margin-top: 6px; font: inherit; font-size: 11px; color: rgba(255,240,220,0.55); background: none; border: 0; padding: 4px 10px; }
+.cta.small { margin-top: 10px; padding: 10px 0; font-size: 16px; }
+.cta.hidden { display: none; }
+.plate.glow img { animation: glow 0.8s infinite alternate; }
+@keyframes glow {
+  from { filter: drop-shadow(0 0 0 rgba(255,200,60,0)); transform: scale(1); }
+  to { filter: drop-shadow(0 0 12px rgba(255,200,60,0.95)); transform: scale(1.06); }
+}
+
+/* ---------- 开始页 ---------- */
+.best { margin: -6px 0 12px; font-size: 12px; color: #ffd35c; min-height: 1px; }
+.link { margin-top: 12px; font: inherit; font-size: 13px; color: rgba(255,240,220,0.75); background: none; border: 0; text-decoration: underline; padding: 6px; }
+
+/* ---------- 结算卡 ---------- */
+.result-wrap { width: 88%; max-width: 380px; text-align: center; }
+.r-img { display: block; width: 100%; max-height: 62vh; -o-object-fit: contain; object-fit: contain; border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.65); -webkit-touch-callout: default; }
+.save-tip { min-height: 18px; margin: 8px 0 4px; font-size: 12px; color: #ffd35c; }
+.r-actions .cta { margin-top: 4px; }
+.r-row { display: flex; margin-top: 10px; }
+.r-row .ghost + .ghost { margin-left: 10px; }
+.ghost {
+  flex: 1; padding: 11px 0; border-radius: 14px; font: inherit; font-size: 15px; font-weight: 800; color: #ffe2a8;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,200,140,0.4);
+}
+.ghost.hidden { display: none; }
+
+/* ---------- 提示条 ---------- */
+.msg {
+  position: absolute; z-index: 9; left: 50%; top: 45%; transform: translate(-50%, -50%) scale(0.9);
+  padding: 10px 18px; border-radius: 14px; font-size: 14px; font-weight: 700;
+  background: rgba(0,0,0,0.78); opacity: 0; pointer-events: none; transition: all 0.2s;
+}
+.msg.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }

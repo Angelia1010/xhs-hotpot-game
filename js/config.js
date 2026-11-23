@@ -46,7 +46,7 @@ HP.HINT_OFF_BONUS = 1.2;      // 关掉火候提示（老手模式）的得分�
 HP.PHASES = [
   { until: 30, npc: [9, 13], event: [999, 999] },
   { until: 70, npc: [6, 10], event: [13, 17] },
-  { until: 999, npc: [4, 7], event: [7, 10] }
+  { until: 999, npc: [5, 8], event: [8, 11] }
 ];
 HP.EVENT_FIRST = 24;          // 第一个突发事件出现时间
 
@@ -58,6 +58,6 @@ HP.EVENTS = {
 };
 
 HP.ASSETS = {
-  scene: ['pot', 'table', 'chopsticks_closed', 'chopsticks_open', 'hand_laowang', 'hand_boss', 'hand_friend'],
+  scene: ['pot', 'table', 'card_bg', 'chopsticks_closed', 'hand_laowang', 'hand_boss', 'hand_friend'],
   food: HP.FOOD_ORDER
 };
