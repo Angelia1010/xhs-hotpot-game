@@ -40,6 +40,14 @@
     var insets = { top: 0, bottom: 0 };
     var cardUrl = null, msgTimer = null, current = null, pending = null;
 
+    /* 只提示一次：不挡操作，几秒后自动消失 */
+    var tipTimer = null;
+    function tipOnce(key, text) {
+      if (!text || profile.seen[key]) return;
+      profile.seen[key] = 1; saveProfile();
+      var t = $('tip'); t.innerHTML = text; t.className = 'tip show';
+      clearTimeout(tipTimer); tipTimer = setTimeout(function () { t.className = 'tip'; }, 3200);
+    }
     function msg(text) {
       var m = $('msg'); m.textContent = text; m.className = 'msg show';
       clearTimeout(msgTimer); msgTimer = setTimeout(function () { m.className = 'msg'; }, 1800);
@@ -60,7 +68,10 @@
         if (on) { $('event-text').textContent = cfg.text; $('event-sub').textContent = cfg.sub; e.className = 'event show ' + type; }
         else e.className = 'event';
       },
-      onAction: function (name, d) { if (tutorial && game.mode === 'tutorial') tutorial.onAction(name, d); },
+      onAction: function (name, d) {
+        if (tutorial && game.mode === 'tutorial') { tutorial.onAction(name, d); return; }
+        if ((name === 'drop' || name === 'holdEnter') && HP.FOODS[d.type].tip) tipOnce('food_' + d.type, HP.FOODS[d.type].tip);
+      },
       haptic: function (kind) { P.vibrate(VIB[kind] || 'light'); }
     };
 
@@ -154,6 +165,7 @@
     });
     $('btn-daily').addEventListener('click', function () { begin({ scene: 'bros', daily: true }); });
     $('btn-tutorial').addEventListener('click', function () { pending = null; startTutorial(); });
+    $('btn-howto').addEventListener('click', function () { $('home').classList.add('hidden'); $('howto').classList.remove('hidden'); });
 
     /* ---------- 商店：解锁菜品、选上桌的菜 ---------- */
     function showShop() {
@@ -285,14 +297,25 @@
 
     /* ---------- 开局 / 结算 ---------- */
     function hideOverlays() {
-      ['home', 'shop', 'codex', 'result'].forEach(function (id) { $(id).classList.add('hidden'); });
+      ['home', 'shop', 'codex', 'result', 'howto', 'intro'].forEach(function (id) { $(id).classList.add('hidden'); });
       $('event').className = 'event'; $('combo').className = 'combo'; $('score').textContent = '0';
     }
     /* 第一次玩先进教学，教完自动开始选好的那一局 */
     function begin(opt) {
       if (!profile.tutorialDone) { pending = opt; startTutorial(); return; }
+      var S = HP.SCENES[opt.scene];
+      if (!opt.daily && S.intro && !profile.seen['scene_' + opt.scene]) {
+        profile.seen['scene_' + opt.scene] = 1; saveProfile();
+        $('i-title').textContent = S.name;
+        $('i-list').innerHTML = S.intro.map(function (t) { return '<li>' + t + '</li>'; }).join('');
+        pending = opt;
+        ['home', 'shop', 'codex', 'howto'].forEach(function (id) { $(id).classList.add('hidden'); });
+        $('intro').classList.remove('hidden');
+        return;
+      }
       startRound(opt);
     }
+    $('btn-intro').addEventListener('click', function () { var o = pending; pending = null; startRound(o); });
     function startRound(opt) {
       audio.unlock(); hideOverlays(); pending = null;
       current = opt;
@@ -305,6 +328,9 @@
       game.setup({ scene: D ? D.scene : opt.scene, seed: D ? D.seed : 0 });
       game.reset(); game.running = true;
       if (S.bossFirst && !D) hooks.onEvent('wait', WAIT, true);
+      // 第一局开场在锅上标出火力；一人食飘一句提示
+      if (!profile.seen.heat) { profile.seen.heat = 1; saveProfile(); game.heatLabels = 3.5; }
+      if (!D) tipOnce('scene_' + opt.scene, S.tip);
     }
     function startTutorial() {
       audio.unlock(); hideOverlays();
@@ -331,6 +357,10 @@
       var rw = $('rewards'); rw.innerHTML = '';
       rw.appendChild(el('div', 'rw-total', '<i class="coin"></i>+' + r.coins + ' 金币<small>共 ' + profile.coins + '</small>'));
       r.lines.forEach(function (l) { rw.appendChild(el('div', 'rw-line', '<span>' + l[0] + '</span><b>+' + l[1] + '</b>')); });
+      if (!profile.seen.coins) {
+        profile.seen.coins = 1; saveProfile();
+        rw.appendChild(el('div', 'rw-hint', '金币可以在首页「菜单 · 解锁」买新菜'));
+      }
       if (r.titleUp) rw.appendChild(el('div', 'rw-up', '称号升级：' + r.titleUp));
       if (r.streakUp) rw.appendChild(el('div', 'rw-line', '<span>连续打卡</span><b>' + profile.streak.n + ' 天</b>'));
       $('btn-share').classList.toggle('hidden', !P.canShare);

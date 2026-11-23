@@ -112,6 +112,7 @@ var HP = window.HP = window.HP || {};
                    authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {},
                    cellUse: [0, 0, 0, 0, 0, 0, 0, 0, 0], served: 0, servedBad: 0, rude: 0, blockedBoss: 0 };
     this.waitBoss = this.scene.bossFirst || 0;
+    this.heatLabels = 0;
   };
 
   /* 通知外部（教学引导用） */
@@ -482,6 +483,7 @@ var HP = window.HP = window.HP || {};
     }
     this.updateNpcs(dt);
     if (this.ghost) this.ghost.t += dt;
+    if (this.heatLabels > 0) this.heatLabels -= dt;
 
     if (!tut && this.timeLeft <= 0) { this.running = false; this.drag = null; if (this.hold) this.releaseHold(); this.endEvent(); if (this.hooks.onEnd) this.hooks.onEnd(this.stats); }
   };
@@ -556,6 +558,17 @@ var HP = window.HP = window.HP || {};
     ctx.drawImage(im, -tipNorm[0] * im.width * k + 10, -tipNorm[1] * im.height * k + 12, im.width * k, im.height * k);
     ctx.restore();
     ctx.drawImage(im, -tipNorm[0] * im.width * k, -tipNorm[1] * im.height * k, im.width * k, im.height * k);
+    ctx.restore();
+  };
+
+  /* 第一局开场：直接在锅上标出哪里火大、哪里火小 */
+  Game.prototype.drawHeatLabels = function (ctx) {
+    var a = Math.min(1, this.heatLabels / 0.6), self = this;
+    ctx.save(); ctx.globalAlpha = a;
+    [[4, '火最大', '#ffd35c'], [0, '火小', '#9fd8ff'], [2, '火小', '#9fd8ff'], [6, '火小', '#9fd8ff'], [8, '火小', '#9fd8ff']].forEach(function (L) {
+      var c = self.cells[L[0]], p = self.toScreen((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2);
+      self.drawLabel(ctx, p.x, p.y, L[1], L[2]);
+    });
     ctx.restore();
   };
 
@@ -708,6 +721,7 @@ var HP = window.HP = window.HP || {};
     }
 
     this.fx.drawSteam(ctx, this.time);
+    if (this.heatLabels > 0) this.drawHeatLabels(ctx);
     this.fx.drawTexts(ctx);
     this.drawGhost(ctx);
   };

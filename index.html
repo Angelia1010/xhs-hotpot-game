@@ -43,6 +43,16 @@
   </div>
 
   <div id="msg" class="msg"></div>
+  <div id="tip" class="tip"></div>
+
+  <section id="intro" class="overlay hidden">
+    <div class="card intro">
+      <small>第一次玩</small>
+      <h2 id="i-title"></h2>
+      <ul id="i-list" class="i-list"></ul>
+      <button id="btn-intro" class="cta small" type="button">明白了</button>
+    </div>
+  </section>
 
   <section id="loading" class="overlay">
     <div class="card">
@@ -74,7 +84,25 @@
         <button id="btn-shop" class="ghost" type="button">菜单 · 解锁</button>
         <button id="btn-codex" class="ghost" type="button">图鉴 · 成就</button>
       </div>
-      <button id="btn-tutorial" class="link" type="button">新手教学</button>
+      <button id="btn-howto" class="link" type="button">怎么玩</button>
+    </div>
+  </section>
+
+  <section id="howto" class="overlay panel hidden">
+    <div class="sheet">
+      <div class="sheet-head"><b>怎么玩</b></div>
+      <div class="how">
+        <p><em class="tag drop">煮</em>拖进锅里<b>松手</b>，变色了<b>点它</b>捞起</p>
+        <p><em class="tag swish">涮</em>拖进锅<b>别松手</b>，松手就捞起；毛肚上下提放 <b>7~8 次</b>最正宗</p>
+        <p><em class="k">火候</em>看颜色和形状，圈<b>变绿</b>就是正好；吃生的扣分最多</p>
+        <p><em class="k">九宫格</em><b>中间火最大</b>，四个角最小</p>
+        <p><em class="k">护食</em>同桌的筷子伸过来，<b>点它</b>挡开</p>
+        <p><em class="k">得分</em>连续完美有连击；关掉火候提示得分 <b>×1.2</b></p>
+        <p><em class="k">金币</em>得分换金币，去「菜单 · 解锁」买新菜</p>
+        <p><em class="k">今日火锅</em>每天所有人吃同一锅，比谁分高</p>
+      </div>
+      <button id="btn-tutorial" class="cta small" type="button">重看新手教学</button>
+      <button class="ghost close" data-close="howto" type="button">返回</button>
     </div>
   </section>
 

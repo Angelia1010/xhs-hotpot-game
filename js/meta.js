@@ -51,7 +51,7 @@ var HP = window.HP = window.HP || {};
       unlocked: HP.FOOD_ORDER.filter(function (id) { return !HP.FOODS[id].unlock; }),
       loadout: null,
       totals: { perfect: 0, authentic: 0, blocked: 0, stolen: 0, served: 0, toastOk: 0, eaten: 0, raw: 0 },
-      perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0
+      perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0, seen: {}
     };
   };
   /* 合并旧存档，缺的字段补默认值 */

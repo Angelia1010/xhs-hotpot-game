@@ -60,9 +60,10 @@ HP.EVENTS = {
 /* 饭局剧本 */
 HP.SCENES = {
   bros: { name: '兄弟局', desc: '同桌三个人抢着吃，谁手快谁吃饱', npcs: ['laowang', 'friend', 'boss'], events: ['soup', 'fire', 'toast'] },
-  solo: { name: '一人食', desc: '没人跟你抢，只比火候有多准', npcs: [], events: ['soup', 'fire'] },
+  solo: { name: '一人食', desc: '没人跟你抢，只比火候有多准', npcs: [], events: ['soup', 'fire'], tip: '没人跟你抢，专心看火候' },
   team: { name: '公司团建', desc: '领导先动筷，挡领导扣分，给领导涮好菜加分', npcs: ['boss', 'laowang'], events: ['toast', 'toast', 'soup', 'fire'],
-          bossFirst: 5, unlockGames: 5 }
+          bossFirst: 5, unlockGames: 5,
+          intro: ['开局 5 秒等领导先动筷，抢先吃扣分', '领导的筷子<b>别挡</b>，挡了扣分', '领导夹走你<b>涮好的菜</b>，你加分'] }
 };
 HP.SCENE_ORDER = ['bros', 'solo', 'team'];
 

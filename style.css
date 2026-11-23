@@ -274,3 +274,28 @@ body {
 .r-row .ghost { font-size: 14px; }
 
 .panel { background: linear-gradient(180deg, rgba(40,8,3,0.97), rgba(18,4,2,0.98)); }
+
+/* ---------- 怎么玩 ---------- */
+.how { margin: 10px 0 14px; }
+.how p { position: relative; padding: 10px 12px 10px 78px; margin-bottom: 6px; border-radius: 12px; background: rgba(30,8,4,0.6); font-size: 14px; line-height: 1.5; text-align: left; }
+.how p b { color: #ffd35c; }
+.how .tag, .how .k { position: absolute; left: 12px; top: 12px; margin: 0; }
+.how .k { font-style: normal; font-size: 11px; font-weight: 900; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.12); color: #ffe2a8; min-width: 52px; text-align: center; }
+#howto .cta.small { margin-top: 0; }
+
+/* ---------- 剧本开场卡 ---------- */
+.intro small { font-size: 11px; letter-spacing: 2px; color: #ffb347; font-weight: 800; }
+.intro h2 { font-size: 30px; font-weight: 900; color: #ffe2a8; margin: 4px 0 12px; }
+.i-list { list-style: none; text-align: left; margin-bottom: 14px; }
+.i-list li { padding: 9px 12px; margin-bottom: 6px; border-radius: 10px; background: rgba(0,0,0,0.25); font-size: 14px; }
+.i-list b { color: #ffd35c; }
+
+/* ---------- 一次性提示 ---------- */
+.tip {
+  position: absolute; z-index: 6; left: 50%; top: 120px; top: calc(120px + var(--inset-top, 0px)); transform: translate(-50%, -8px);
+  max-width: 86%; padding: 8px 16px; border-radius: 14px; font-size: 13px; font-weight: 700; text-align: center;
+  color: #3a0d00; background: linear-gradient(#ffe48a, #ffab1f); box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+  opacity: 0; pointer-events: none; transition: all 0.25s;
+}
+.tip.show { opacity: 1; transform: translate(-50%, 0); }
+.rw-hint { margin-top: 4px; text-align: center; font-size: 12px; color: #ffd35c; }
