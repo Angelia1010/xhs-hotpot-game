@@ -1,4 +1,4 @@
-/* 启动：加载素材、搭界面、主循环、教学、开始页和结算卡。 */
+/* 启动：加载素材、搭界面、主循环；首页、商店、图鉴、教学、结算。 */
 (function () {
   var HP = window.HP, P = HP.platform;
   var $ = function (id) { return document.getElementById(id); };
@@ -30,35 +30,23 @@
 
   function fmt(t) { var s = Math.ceil(t); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function today() { var d = new Date(); return d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate(); }
-
-  function persona(s) {
-    var ratio = s.eaten ? s.perfect / s.eaten : 0;
-    if (s.eaten === 0) return ['光看不吃', '锅都快烧干了，你一口没动'];
-    if (s.authentic >= 3) return ['七上八下大师', '重庆人看了都要给你递一瓶冰啤酒'];
-    if (s.stolen >= 4) return ['被抢专业户', '老王说今天这顿吃得很满意'];
-    if (ratio >= 0.7 && s.perfect >= 6) return ['毛肚刺客', '火候拿捏得比服务员还准'];
-    if (s.blocked >= 3) return ['护食狂魔', '谁也别想从你锅里夹走一片肉'];
-    if (s.raw >= 3) return ['生吃勇士', '你的肠胃正在给你打电话'];
-    if (s.toastMiss >= 2) return ['领导的眼中钉', '吃得挺香，就是忘了看领导的杯子'];
-    if (s.toastOk >= 2 && ratio >= 0.3) return ['饭局情商王', '涮得好，酒也敬得好'];
-    if (s.over >= 4) return ['炖菜大师', '你是来吃火锅的还是来熬汤的'];
-    if (ratio >= 0.4) return ['火锅老手', '有点东西，再练练就能出师'];
-    return ['火锅新秀', '下次盯紧一点，别光顾着聊天'];
-  }
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function plateSrc(id) { return 'img/plate/' + id + '.webp'; }
 
   function init() {
     var canvas = $('cv'), app = $('app'), tray = $('plates'), hud = $('hud');
     var audio = new HP.Audio(), game, tutorial, images;
-    var profile = { tutorialDone: false, best: 0, games: 0 };
+    var profile = HP.newProfile();
     var insets = { top: 0, bottom: 0 };
-    var cardUrl = null, msgTimer = null;
+    var cardUrl = null, msgTimer = null, current = null, pending = null;
 
     function msg(text) {
-      var el = $('msg'); el.textContent = text; el.className = 'msg show';
-      clearTimeout(msgTimer); msgTimer = setTimeout(function () { el.className = 'msg'; }, 1800);
+      var m = $('msg'); m.textContent = text; m.className = 'msg show';
+      clearTimeout(msgTimer); msgTimer = setTimeout(function () { m.className = 'msg'; }, 1800);
     }
 
     var VIB = { perfect: 'medium', block: 'heavy', dip: 'light', event: 'heavy', raw: 'light', ok: 'light', over: 'light' };
+    var WAIT = { text: '等领导先动筷…', sub: '这 5 秒先别夹菜' };
     var hooks = {
       onScore: function (s) {
         $('score').textContent = s.score;
@@ -68,9 +56,9 @@
       },
       onEnd: function (s) { finishRound(s); },
       onEvent: function (type, cfg, on) {
-        var el = $('event');
-        if (on) { $('event-text').textContent = cfg.text; $('event-sub').textContent = cfg.sub; el.className = 'event show ' + type; }
-        else el.className = 'event';
+        var e = $('event');
+        if (on) { $('event-text').textContent = cfg.text; $('event-sub').textContent = cfg.sub; e.className = 'event show ' + type; }
+        else e.className = 'event';
       },
       onAction: function (name, d) { if (tutorial && game.mode === 'tutorial') tutorial.onAction(name, d); },
       haptic: function (kind) { P.vibrate(VIB[kind] || 'light'); }
@@ -78,7 +66,7 @@
 
     /* ---------- 启动：存档 + 安全区 + 素材 ---------- */
     Promise.all([
-      P.load('profile').then(function (p) { if (p) for (var k in p) if (p.hasOwnProperty(k)) profile[k] = p[k]; }),
+      P.load('profile').then(function (p) { profile = HP.migrateProfile(p); }),
       P.getInsets().then(function (r) { if (r) insets = r; })
     ]).then(function () {
       return loadAll(function (p) { $('loadbar').style.width = Math.round(p * 100) + '%'; });
@@ -86,29 +74,31 @@
       images = imgs;
       game = new HP.Game(canvas, images, hooks);
       game.audio = audio;
-      HP.game = game; // 方便调试
+      HP.game = game; HP.profile = function () { return profile; }; // 方便调试
       tutorial = new HP.Tutorial(game, coachUI);
-      buildTray();
+      buildTray(HP.getLoadout(profile));
       layout();
       $('loading').classList.add('hidden');
-      showStart();
+      showHome();
       requestAnimationFrame(loop);
     }).catch(function (e) { $('loadtext').textContent = e.message; });
 
     function saveProfile() { P.save('profile', profile); }
 
-    function buildTray() {
+    /* ---------- 托盘：本局带上桌的菜 ---------- */
+    function buildTray(ids) {
       tray.innerHTML = '';
-      HP.FOOD_ORDER.forEach(function (id) {
-        var F = HP.FOODS[id], el = document.createElement('div');
-        el.className = 'plate'; el.setAttribute('data-food', id); el.id = 'plate-' + id;
-        var im = document.createElement('img'); im.alt = F.name; im.draggable = false;
+      ids.forEach(function (id) {
+        var F = HP.FOODS[id], p = el('div', 'plate');
+        p.setAttribute('data-food', id); p.id = 'plate-' + id;
+        var im = el('img'); im.alt = F.name; im.draggable = false;
         // 盘子图加载完托盘才有真实高度，此时重新排版，锅才会居中
         im.onload = function () { if (game) layout(); };
-        im.src = 'img/plate/' + id + '.webp';
-        var nm = document.createElement('span'); nm.textContent = F.name;
-        var tg = document.createElement('em'); tg.className = 'tag ' + F.mode; tg.textContent = F.mode === 'swish' ? '涮' : '煮';
-        el.appendChild(im); el.appendChild(nm); el.appendChild(tg); tray.appendChild(el);
+        im.src = plateSrc(id);
+        p.appendChild(im);
+        p.appendChild(el('span', null, F.name));
+        p.appendChild(el('em', 'tag ' + F.mode, F.mode === 'swish' ? '涮' : '煮'));
+        tray.appendChild(p);
       });
     }
 
@@ -117,15 +107,123 @@
       var w = app.clientWidth, h = app.clientHeight;
       if (insets.top) hud.style.paddingTop = (insets.top + 6) + 'px';
       if (insets.bottom) $('tray').style.paddingBottom = (insets.bottom + 8) + 'px';
+      if (insets.top) app.style.setProperty('--inset-top', insets.top + 'px');
       var hudH = hud.offsetHeight, trayH = $('tray').offsetHeight;
       $('combo').style.top = (hudH + 2) + 'px';
       $('tools').style.top = (hudH + 8) + 'px';
-      // 突发事件横幅放在锅和托盘交界处，不挡锅的上半部分
       $('event').style.bottom = (trayH - 30) + 'px';
       $('coach').style.bottom = (trayH + 6) + 'px';
       game.layout(w, h, hudH + 6, h - trayH - 4);
     }
     window.addEventListener('resize', function () { if (game) layout(); });
+
+    /* ---------- 首页 ---------- */
+    function showHome() {
+      var day = HP.dayKey(), D = HP.dailySetup(day);
+      $('h-title').textContent = HP.titleOf(profile);
+      $('h-coins').textContent = profile.coins;
+      var yest = HP.dayKey(new Date(Date.now() - 864e5));
+      var alive = profile.streak.last === day || profile.streak.last === yest;
+      $('h-streak').textContent = alive && profile.streak.n ? '连续 ' + profile.streak.n + ' 天' : '今天还没吃';
+      $('d-date').textContent = HP.dayLabel(day);
+      $('d-bonus').style.display = profile.lastPlayDay === day ? 'none' : '';
+      var dm = $('d-menu'); dm.innerHTML = '';
+      D.menu.forEach(function (id) {
+        var it = el('div', 'd-item'), im = el('img'); im.src = plateSrc(id); im.alt = HP.FOODS[id].name;
+        it.appendChild(im); it.appendChild(el('small', null, HP.FOODS[id].name)); dm.appendChild(it);
+      });
+      var dd = profile.daily.day === day ? profile.daily : null;
+      $('d-best').textContent = dd && dd.plays ? '今日最高 ' + dd.best + ' 分 · 已吃 ' + dd.plays + ' 次' : '所有人今天吃同一锅，比比谁分高';
+
+      var sc = $('scenes'); sc.innerHTML = '';
+      HP.SCENE_ORDER.forEach(function (id) {
+        var S = HP.SCENES[id], ok = HP.sceneUnlocked(profile, id), b = el('button', 'scene-card' + (ok ? '' : ' locked'));
+        b.type = 'button'; b.setAttribute('data-scene', id);
+        var best = profile.bestBy[id];
+        b.innerHTML = '<b>' + S.name + '</b><small>' + (ok ? S.desc : '再玩 ' + (S.unlockGames - profile.games) + ' 局解锁') + '</small>' +
+          '<em>' + (ok ? (best ? '最高 ' + best : '开吃') : '未解锁') + '</em>';
+        sc.appendChild(b);
+      });
+      $('home').classList.remove('hidden');
+    }
+    $('scenes').addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('.scene-card') : null; if (!b) return;
+      var id = b.getAttribute('data-scene');
+      if (!HP.sceneUnlocked(profile, id)) { msg('再玩 ' + (HP.SCENES[id].unlockGames - profile.games) + ' 局就能解锁'); return; }
+      begin({ scene: id, daily: false });
+    });
+    $('btn-daily').addEventListener('click', function () { begin({ scene: 'bros', daily: true }); });
+    $('btn-tutorial').addEventListener('click', function () { pending = null; startTutorial(); });
+
+    /* ---------- 商店：解锁菜品、选上桌的菜 ---------- */
+    function showShop() {
+      $('s-coins').textContent = profile.coins;
+      var lo = HP.getLoadout(profile);
+      $('s-count').textContent = lo.length;
+      var list = $('s-list'); list.innerHTML = '';
+      HP.FOOD_ORDER.forEach(function (id) {
+        var F = HP.FOODS[id], have = profile.unlocked.indexOf(id) >= 0, on = lo.indexOf(id) >= 0;
+        var it = el('div', 's-item' + (have ? (on ? ' on' : '') : ' locked'));
+        it.setAttribute('data-food', id);
+        var im = el('img'); im.src = plateSrc(id); im.alt = F.name; it.appendChild(im);
+        it.appendChild(el('b', null, F.name + ' <em class="tag ' + F.mode + '">' + (F.mode === 'swish' ? '涮' : '煮') + '</em>'));
+        var dex = profile.perfectBy[id] || 0, badge = HP.badgeOf(dex);
+        it.appendChild(el('small', null, have ? (badge ? badge.name + ' · ' : '') + '完美 ' + dex + ' 次' : '用金币解锁'));
+        it.appendChild(el('span', 'state', have ? (on ? '已上桌' : '未上桌') : '<i class="coin"></i>' + F.unlock));
+        list.appendChild(it);
+      });
+      $('home').classList.add('hidden'); $('shop').classList.remove('hidden');
+    }
+    $('btn-shop').addEventListener('click', showShop);
+    $('s-list').addEventListener('click', function (e) {
+      var it = e.target.closest ? e.target.closest('.s-item') : null; if (!it) return;
+      var id = it.getAttribute('data-food'), err;
+      if (profile.unlocked.indexOf(id) < 0) {
+        err = HP.unlockFood(profile, id);
+        if (!err) { msg('解锁了 ' + HP.FOODS[id].name + '！'); if (audio) audio.clink(); }
+      } else err = HP.toggleLoadout(profile, id);
+      if (err) msg(err);
+      saveProfile(); showShop(); $('h-coins').textContent = profile.coins;
+    });
+
+    /* ---------- 图鉴 / 成就 ---------- */
+    function showCodex() {
+      $('c-title').textContent = HP.titleOf(profile);
+      var nx = HP.nextTitle(profile);
+      $('c-next').textContent = nx ? '再拿 ' + nx.need + ' 次完美火候，升级为「' + nx.name + '」' : '已经是最高称号了';
+      var dex = $('c-dex'); dex.innerHTML = '';
+      HP.FOOD_ORDER.forEach(function (id) {
+        var n = profile.perfectBy[id] || 0, b = HP.badgeOf(n), next = null;
+        for (var i = 0; i < HP.BADGES.length; i++) if (n < HP.BADGES[i][0]) { next = HP.BADGES[i]; break; }
+        var row = el('div', 'c-row' + (profile.unlocked.indexOf(id) < 0 ? ' dim' : ''));
+        var im = el('img'); im.src = 'img/food/' + id + '_1.webp'; im.alt = ''; row.appendChild(im);
+        var pct = next ? Math.round(n / next[0] * 100) : 100;
+        row.appendChild(el('div', 'c-info', '<b>' + HP.FOODS[id].name + (b ? ' <em class="badge b' + b.tier + '">' + b.name + '</em>' : '') + '</b>' +
+          '<small>完美 ' + n + ' 次' + (next ? ' · 下一级「' + next[1] + '」需 ' + next[0] + ' 次' : ' · 满级') + '</small>' +
+          '<span class="prog"><i style="width:' + pct + '%"></i></span>'));
+        dex.appendChild(row);
+      });
+      var ach = $('c-ach'); ach.innerHTML = '';
+      var got = 0;
+      HP.ACHIEVEMENTS.forEach(function (a) {
+        var done = !!profile.ach[a.id]; if (done) got++;
+        ach.appendChild(el('div', 'c-row ach' + (done ? ' done' : ''),
+          '<div class="c-info"><b>' + a.name + '</b><small>' + a.desc + '</small></div><span class="state">' + (done ? '已达成' : '<i class="coin"></i>' + a.coins) + '</span>'));
+      });
+      document.querySelector('[data-tab="ach"]').textContent = '成就 ' + got + '/' + HP.ACHIEVEMENTS.length;
+      $('home').classList.add('hidden'); $('codex').classList.remove('hidden');
+    }
+    $('btn-codex').addEventListener('click', showCodex);
+    $('codex').addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('.tab') : null; if (!t) return;
+      var tab = t.getAttribute('data-tab'), tabs = document.querySelectorAll('#codex .tab');
+      for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('on', tabs[i] === t);
+      $('c-dex').classList.toggle('hidden', tab !== 'dex'); $('c-ach').classList.toggle('hidden', tab !== 'ach');
+    });
+    var closers = document.querySelectorAll('[data-close]');
+    for (var ci = 0; ci < closers.length; ci++) closers[ci].addEventListener('click', function () {
+      $(this.getAttribute('data-close')).classList.add('hidden'); showHome();
+    });
 
     /* ---------- 教学引导的界面 ---------- */
     var coachUI = {
@@ -140,14 +238,14 @@
         for (var i = 0; i < els.length; i++) els[i].classList.toggle('glow', els[i].getAttribute('data-food') === id);
       },
       plateCenter: function (id) {
-        var el = $('plate-' + id), r = el.getBoundingClientRect(), c = canvas.getBoundingClientRect();
+        var e = $('plate-' + id), r = e.getBoundingClientRect(), c = canvas.getBoundingClientRect();
         return { x: r.left - c.left + r.width / 2, y: r.top - c.top + r.width * 0.45 };
       }
     };
     function endTutorial() {
       tutorial.stop(); $('coach').className = 'coach hidden';
       profile.tutorialDone = true; saveProfile();
-      startRound();
+      if (pending) begin(pending); else { game.running = false; hideOverlays(); showHome(); }
     }
     $('coach-btn').addEventListener('click', endTutorial);
     $('coach-skip').addEventListener('click', endTutorial);
@@ -156,13 +254,13 @@
     function pos(e) { var r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
     var dragId = null;
     tray.addEventListener('pointerdown', function (e) {
-      var el = e.target.closest ? e.target.closest('.plate') : null;
-      if (!el || !game || !game.running || dragId !== null) return;
+      var p = e.target.closest ? e.target.closest('.plate') : null;
+      if (!p || !game || !game.running || dragId !== null) return;
       e.preventDefault();
       audio.unlock();
-      var p = pos(e); game.dragStart(el.getAttribute('data-food'), p.x, p.y);
+      var q = pos(e); game.dragStart(p.getAttribute('data-food'), q.x, q.y);
       dragId = e.pointerId;
-      el.classList.add('pressed'); setTimeout(function () { el.classList.remove('pressed'); }, 160);
+      p.classList.add('pressed'); setTimeout(function () { p.classList.remove('pressed'); }, 160);
     });
     window.addEventListener('pointermove', function (e) {
       if (game && e.pointerId === dragId) { var p = pos(e); game.dragMove(p.x, p.y); }
@@ -185,40 +283,59 @@
     });
     $('btn-toast').addEventListener('click', function (e) { e.stopPropagation(); game.toast(); });
 
-    /* ---------- 开始 / 一局 / 结算 ---------- */
-    function showStart() {
-      $('best').textContent = profile.best ? '个人最高 ' + profile.best + ' 分' : '';
-      $('start').classList.remove('hidden');
-    }
+    /* ---------- 开局 / 结算 ---------- */
     function hideOverlays() {
-      $('start').classList.add('hidden'); $('result').classList.add('hidden');
+      ['home', 'shop', 'codex', 'result'].forEach(function (id) { $(id).classList.add('hidden'); });
       $('event').className = 'event'; $('combo').className = 'combo'; $('score').textContent = '0';
     }
-    function startRound() {
-      audio.unlock(); hideOverlays();
-      game.reset(); game.mode = 'play'; game.running = true;
+    /* 第一次玩先进教学，教完自动开始选好的那一局 */
+    function begin(opt) {
+      if (!profile.tutorialDone) { pending = opt; startTutorial(); return; }
+      startRound(opt);
+    }
+    function startRound(opt) {
+      audio.unlock(); hideOverlays(); pending = null;
+      current = opt;
+      var S = HP.SCENES[opt.scene], D = opt.daily ? HP.dailySetup(HP.dayKey()) : null;
+      buildTray(D ? D.menu : HP.getLoadout(profile));
+      $('hud-scene').textContent = D ? '今日火锅' : S.name;
+      $('hud-sub').textContent = D ? HP.dayLabel(HP.dayKey()) + ' · 九宫格' : '九宫格 · 川渝';
+      layout();
+      game.mode = 'play';
+      game.setup({ scene: D ? D.scene : opt.scene, seed: D ? D.seed : 0 });
+      game.reset(); game.running = true;
+      if (S.bossFirst && !D) hooks.onEvent('wait', WAIT, true);
     }
     function startTutorial() {
       audio.unlock(); hideOverlays();
+      buildTray(['beef', 'maodu', 'luncheon', 'potato', 'duckblood', 'shrimp']);
+      $('hud-scene').textContent = '新手教学'; $('hud-sub').textContent = '九宫格 · 川渝';
+      layout();
+      game.setup({ scene: 'bros', seed: 0 });
       tutorial.start();
     }
-    $('btn-start').addEventListener('click', function () {
-      if (!profile.tutorialDone) startTutorial(); else startRound();
-    });
-    $('btn-tutorial').addEventListener('click', startTutorial);
-    $('btn-again').addEventListener('click', startRound);
+    $('btn-again').addEventListener('click', function () { startRound(current || { scene: 'bros', daily: false }); });
+    $('btn-home').addEventListener('click', function () { hideOverlays(); showHome(); });
 
     function finishRound(s) {
-      var isBest = s.score > (profile.best || 0) && s.score > 0;
-      profile.games = (profile.games || 0) + 1;
-      if (isBest) profile.best = s.score;
+      var ctx = { scene: current.scene, daily: !!current.daily };
+      var sceneId = current.daily ? 'bros' : current.scene;
+      var r = HP.settle(profile, s, ctx);
       saveProfile();
-      var p = persona(s);
-      cardUrl = HP.renderCard(images, s, p, { date: today(), scene: '兄弟局 · 九宫格', isBest: isBest });
+      var p = HP.persona(s, sceneId);
+      var label = current.daily ? '今日火锅 · ' + HP.dayLabel(HP.dayKey()) : HP.SCENES[current.scene].name + ' · 九宫格';
+      cardUrl = HP.renderCard(images, s, p, { date: today(), scene: label, isBest: r.isBest, title: HP.titleOf(profile) });
       $('r-img').src = cardUrl;
       $('save-tip').textContent = '';
+      // 奖励明细
+      var rw = $('rewards'); rw.innerHTML = '';
+      rw.appendChild(el('div', 'rw-total', '<i class="coin"></i>+' + r.coins + ' 金币<small>共 ' + profile.coins + '</small>'));
+      r.lines.forEach(function (l) { rw.appendChild(el('div', 'rw-line', '<span>' + l[0] + '</span><b>+' + l[1] + '</b>')); });
+      if (r.titleUp) rw.appendChild(el('div', 'rw-up', '称号升级：' + r.titleUp));
+      if (r.streakUp) rw.appendChild(el('div', 'rw-line', '<span>连续打卡</span><b>' + profile.streak.n + ' 天</b>'));
       $('btn-share').classList.toggle('hidden', !P.canShare);
       $('result').classList.remove('hidden');
+      if (r.ach.length && audio) audio.clink();
     }
 
     /* 保存：小红书里直接存相册；浏览器预览里提示长按图片保存 */

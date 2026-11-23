@@ -47,7 +47,7 @@ var HP = window.HP = window.HP || {};
     ctx.font = '700 34px ' + FONT;
     ctx.fillText('火锅局 · 饭局报告', W / 2, 92);
     ctx.font = '500 26px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.6)';
-    ctx.fillText(extra.date + '　' + extra.scene, W / 2, 140);
+    ctx.fillText(extra.date + '　' + extra.scene + (extra.title ? '　·　' + extra.title : ''), W / 2, 140);
 
     // 人格
     ctx.font = '500 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.75)';

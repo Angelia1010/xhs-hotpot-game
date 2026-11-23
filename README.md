@@ -14,7 +14,11 @@ python3 -m http.server 8080
 - `js/fx.js`：沸腾气泡、涟漪、油光、热气等动态特效（程序绘制）
 - `js/game.js`：熟度系统、触控、NPC 抢菜、绘制
 - `js/audio.js`：Web Audio 合成音效（小工具不允许打包音频文件）
-- `js/main.js`：加载、主循环、开始/结算页
+- `js/main.js`：加载、主循环、首页、商店、图鉴、结算
+- `js/meta.js`：存档、金币、解锁、自选菜单、每日一锅、打卡、成就、称号、人格
+- `js/tutorial.js`：新手引导
+- `js/card.js`：结算卡「饭局报告」
+- `js/platform.js`：小红书接口适配
 - `img/`：处理后的 webp 素材（不放在 assets/，避免被平台静态资源优化移出包外、离线时加载失败）
 - `tools/process_assets.py`：把 GPT 原图切成三状态、裁切、压缩成 webp
 
@@ -30,3 +34,9 @@ python3 -m http.server 8080
 - 保存结算卡：`saveImageToPhotosAlbum`（必须点击触发）
 - 分享：`share`（客户端 9.53+，全屏容器，每天 10 次）
 - 安全区：`getWindowInfo`，HUD 自动避开右上角胶囊按钮
+
+## 加新菜
+1. GPT 出三状态图和点菜盘，放进原图目录
+2. `tools/process_assets.py` 的 `FOOD` 表里加一行（原图文件名 → 食材 id），重新处理素材
+3. `js/config.js` 的 `HP.FOODS` 加数值（mode、火候 a/b、大小、`unlock` 价格），`HP.FOOD_ORDER` 加 id
+4. `js/meta.js` 的 `FAV` 可以给新菜加一个「最爱人格」

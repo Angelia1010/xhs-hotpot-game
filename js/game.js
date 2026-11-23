@@ -19,6 +19,7 @@ var HP = window.HP = window.HP || {};
     this.foods = []; this.npcs = []; this.drag = null; this.hold = null; this.lift = [];
     this.hints = true; this.running = false; this.time = 0;
     this.mode = 'play'; this.ghost = null; this.tutorialHeat = 1;
+    this.scene = HP.SCENES.bros; this.sceneId = 'bros'; this.rng = Math.random;
     this.audio = null;
     this.buildCells();
     this.fx = new HP.FX(this);
@@ -87,10 +88,20 @@ var HP = window.HP = window.HP || {};
   Game.prototype.toScreen = function (nx, ny) { return { x: this.potX + nx * this.potSize, y: this.potY + ny * this.potSize }; };
   Game.prototype.toNorm = function (x, y) { return { nx: (x - this.potX) / this.potSize, ny: (y - this.potY) / this.potSize }; };
 
+  /* ---------- 一局的设置：剧本、随机种子 ---------- */
+  Game.prototype.setup = function (opt) {
+    this.sceneId = opt.scene || 'bros'; this.scene = HP.SCENES[this.sceneId];
+    this.rng = opt.seed ? HP.rng(opt.seed) : Math.random;
+  };
+  Game.prototype.rr = function (a, b) { return a + this.rng() * (b - a); };
+
   /* ---------- 一局的状态 ---------- */
   Game.prototype.reset = function () {
     this.foods = []; this.lift = []; this.npcs = [];
-    for (var i = 0; i < HP.NPCS.length; i++) this.npcs.push({ cfg: HP.NPCS[i], phase: 'idle', t: 0 });
+    var ids = this.scene.npcs;
+    for (var i = 0; i < HP.NPCS.length; i++) if (ids.indexOf(HP.NPCS[i].id) >= 0) this.npcs.push({ cfg: HP.NPCS[i], phase: 'idle', t: 0 });
+    // 教学里老王总要在场
+    if (!this.npcs.length && this.mode === 'tutorial') this.npcs.push({ cfg: HP.NPCS[0], phase: 'idle', t: 0 });
     this.timeLeft = HP.ROUND_TIME; this.elapsed = 0;
     this.nextNpc = HP.NPC_FIRST_DELAY;
     this.nextEvent = HP.EVENT_FIRST;
@@ -98,7 +109,9 @@ var HP = window.HP = window.HP || {};
     this.event = null; this.lastEvent = null; this.shake = 0;
     this.drag = null; this.hold = null;
     this.stats = { score: 0, combo: 0, bestCombo: 0, perfect: 0, raw: 0, over: 0, eaten: 0, stolen: 0, blocked: 0, spent: 0,
-                   authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {} };
+                   authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {},
+                   cellUse: [0, 0, 0, 0, 0, 0, 0, 0, 0], served: 0, servedBad: 0, rude: 0, blockedBoss: 0 };
+    this.waitBoss = this.scene.bossFirst || 0;
   };
 
   /* 通知外部（教学引导用） */
@@ -127,7 +140,7 @@ var HP = window.HP = window.HP || {};
       type: type, cell: cell, nx: nx, ny: ny, d: 0, t: 0, ph: rand(0, 6.28),
       rot: rand(-0.5, 0.5), depth: F.sinker ? 0.85 : F.depth, state: 'in', drop: 0.28, id: Math.random()
     });
-    this.stats.spent += F.price;
+    this.stats.spent += F.price; this.stats.cellUse[cell]++;
     this.emit('drop', { type: type });
     this.fx.splash(nx, ny, 1);
     if (this.audio) this.audio.splash();
@@ -168,6 +181,10 @@ var HP = window.HP = window.HP || {};
     if (r.kind === 'raw') s.raw++;
     if (r.kind === 'over') s.over++;
     if (!this.hints && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
+    if (this.waitBoss > 0 && this.mode === 'play') {
+      gain -= 30; s.rude++;
+      this.fx.text(x, y - 78 * this.unit, '领导还没动筷！-30', '#ff8a6a', 16 * Math.max(0.8, this.unit));
+    }
     s.bestCombo = Math.max(s.bestCombo, s.combo); s.eaten++;
     s.score = Math.max(0, s.score + gain);
     var big = Math.max(0.8, this.unit);
@@ -213,7 +230,7 @@ var HP = window.HP = window.HP || {};
     var u = this.unit, F = HP.FOODS[h.type];
     if (cell >= 0 && !h.entered) {
       h.entered = true; h.up = false; h.ext = pt.y; h.settle = 0.3;
-      this.stats.spent += F.price;
+      this.stats.spent += F.price; this.stats.cellUse[cell]++;
       this.emit('holdEnter', { type: h.type });
       this.fx.splash(n.nx, n.ny, 0.7); if (this.audio) this.audio.splash();
     }
@@ -269,10 +286,11 @@ var HP = window.HP = window.HP || {};
       var A = HP.FOODS[a.type], B = HP.FOODS[b.type];
       return Math.abs(a.d - (A.a + A.b) / 2) - Math.abs(b.d - (B.a + B.b) / 2);
     });
-    var n = idle[Math.floor(Math.random() * idle.length)];
+    var boss = idle.filter(function (x) { return x.cfg.id === 'boss'; })[0];
+    var n = (this.sceneId === 'team' && boss && this.rng() < 0.6) ? boss : idle[Math.floor(this.rng() * idle.length)];
     // 玩家正按着涮菜、腾不出手时，给更长的反应时间
     this.sendNpc(n, cands[0], this.hold ? 1.7 : 1);
-    var ph = this.phase(); this.nextNpc = rand(ph.npc[0], ph.npc[1]);
+    var ph = this.phase(); this.nextNpc = this.rr(ph.npc[0], ph.npc[1]);
   };
   Game.prototype.sendNpc = function (n, f, warnMul) {
     var D = DIRS[n.cfg.side];
@@ -286,7 +304,11 @@ var HP = window.HP = window.HP || {};
     this.stats.blocked++;
     this.emit('block', { npc: n.cfg.name });
     var p = n.tip;
-    this.fx.text(p.x, p.y, '挡住了！', '#ffffff', 20 * Math.max(0.8, this.unit));
+    if (this.sceneId === 'team' && n.cfg.id === 'boss') {
+      this.stats.blockedBoss++; this.stats.score = Math.max(0, this.stats.score - 20);
+      this.fx.text(p.x, p.y, '敢挡领导的筷子？-20', '#ff8a6a', 18 * Math.max(0.8, this.unit));
+      if (this.hooks.onScore) this.hooks.onScore(this.stats, null);
+    } else this.fx.text(p.x, p.y, '挡住了！', '#ffffff', 20 * Math.max(0.8, this.unit));
     if (this.audio) this.audio.clack();
     if (this.hooks.haptic) this.hooks.haptic('block');
     this.cancelNpc(n, null);
@@ -323,11 +345,22 @@ var HP = window.HP = window.HP || {};
         n.tip = { x: lerp(o.x, T.x, t), y: lerp(o.y, T.y, t) };
         if (n.t >= 0.32) {
           n.phase = 'grab'; n.t = 0;
-          f.state = 'stolen'; n.carry = f; this.stats.stolen++; this.stats.combo = 0;
-          this.stats.stolenBy[f.type] = (this.stats.stolenBy[f.type] || 0) + 1;
-          this.emit('stolen', { type: f.type, npc: n.cfg.name });
+          f.state = 'stolen'; n.carry = f;
           this.fx.splash(f.nx, f.ny, 0.6);
-          this.fx.text(T.x, T.y - 30 * this.unit, n.cfg.name + '抢走了' + HP.FOODS[f.type].name + '！', '#ff9b7a', 16 * Math.max(0.8, this.unit));
+          var big = Math.max(0.8, this.unit), nm = HP.FOODS[f.type].name;
+          if (this.sceneId === 'team' && n.cfg.id === 'boss') {
+            // 给领导涮好的菜：火候好加分，生了老了扣分
+            var r = this.rate(f), st = this.stats;
+            if (r.kind === 'perfect') { st.served++; st.score += 40; this.fx.text(T.x, T.y - 30 * this.unit, '领导：这' + nm + '涮得好！+40', '#ffd35c', 16 * big); }
+            else if (r.kind === 'ok') { st.served++; st.score += 10; this.fx.text(T.x, T.y - 30 * this.unit, '领导点了点头 +10', '#ffe6b0', 15 * big); }
+            else { st.servedBad++; st.score = Math.max(0, st.score - 20); this.fx.text(T.x, T.y - 30 * this.unit, '领导皱了皱眉 -20', '#ff8a6a', 15 * big); }
+            this.emit('served', { type: f.type, kind: r.kind });
+          } else {
+            this.stats.stolen++; this.stats.combo = 0;
+            this.stats.stolenBy[f.type] = (this.stats.stolenBy[f.type] || 0) + 1;
+            this.emit('stolen', { type: f.type, npc: n.cfg.name });
+            this.fx.text(T.x, T.y - 30 * this.unit, n.cfg.name + '抢走了' + nm + '！', '#ff9b7a', 16 * big);
+          }
           if (this.audio) this.audio.clack();
           if (this.hooks.onScore) this.hooks.onScore(this.stats, null);
         }
@@ -362,8 +395,10 @@ var HP = window.HP = window.HP || {};
     }
     this.nextEvent -= dt;
     if (this.nextEvent > 0 || this.timeLeft < 4) return;
-    var types = ['soup', 'fire', 'toast'].filter(function (t) { return t !== this.lastEvent; }, this);
-    this.startEvent(types[Math.floor(Math.random() * types.length)]);
+    var last = this.lastEvent;
+    var types = this.scene.events.filter(function (t) { return t !== last || t === 'toast'; });
+    if (!types.length) return;
+    this.startEvent(types[Math.floor(this.rng() * types.length)]);
   };
   Game.prototype.startEvent = function (type) {
     var cfg = HP.EVENTS[type], i;
@@ -372,7 +407,7 @@ var HP = window.HP = window.HP || {};
     if (cfg.heat) this.heatTarget = cfg.heat;
     if (type === 'soup') {
       // 从锅边倒汤：几圈大涟漪
-      var cells = [0, 2, 6, 8], c = cells[Math.floor(Math.random() * 4)];
+      var cells = [0, 2, 6, 8], c = cells[Math.floor(this.rng() * 4)];
       for (i = 0; i < 3; i++) { var p = this.randomSoupPoint(c); this.fx.splash(p.nx, p.ny, 1.3); }
       if (this.audio) this.audio.pour();
     }
@@ -384,7 +419,7 @@ var HP = window.HP = window.HP || {};
     if (!this.event) return;
     var type = this.event.type;
     this.event = null; this.heatTarget = 1;
-    var ph = this.phase(); this.nextEvent = rand(ph.event[0], ph.event[1]);
+    var ph = this.phase(); this.nextEvent = this.rr(ph.event[0], ph.event[1]) * (this.sceneId === 'team' ? 0.75 : 1);
     if (this.hooks.onEvent) this.hooks.onEvent(type, HP.EVENTS[type], false);
   };
   /* 敬酒：在时限内点「干杯」 */
@@ -436,6 +471,10 @@ var HP = window.HP = window.HP || {};
 
     this.updateHold(dt);
 
+    if (!tut && this.waitBoss > 0) {
+      this.waitBoss -= dt;
+      if (this.waitBoss <= 0 && this.hooks.onEvent) this.hooks.onEvent('wait', null, false);
+    }
     if (!tut) {
       this.nextNpc -= dt;
       if (this.nextNpc <= 0) this.scheduleNpc();

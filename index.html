@@ -11,7 +11,7 @@
   <canvas id="cv"></canvas>
 
   <header id="hud" class="hud">
-    <div class="pill scene"><b>兄弟局</b><small>九宫格 · 川渝</small></div>
+    <div class="pill scene"><b id="hud-scene">兄弟局</b><small id="hud-sub">九宫格 · 川渝</small></div>
     <div id="timer" class="timer">
       <svg viewBox="0 0 40 40"><circle class="track" cx="20" cy="20" r="18"/><circle id="ring" class="ring" cx="20" cy="20" r="18"/></svg>
       <span id="time">1:30</span>
@@ -52,19 +52,49 @@
     </div>
   </section>
 
-  <section id="start" class="overlay hidden">
-    <div class="card">
-      <h1>火锅局</h1>
+  <section id="home" class="overlay hidden">
+    <div class="home">
+      <div class="home-top">
+        <span id="h-title" class="chip title-chip">火锅学徒</span>
+        <span id="h-streak" class="chip"></span>
+        <span class="chip coin-chip"><i class="coin"></i><b id="h-coins">0</b></span>
+      </div>
+      <h1 class="logo">火锅局</h1>
       <p class="sub">涮得好是技术，吃得好是情商</p>
-      <ul class="rules">
-        <li><b>中间格火最旺</b>，四个角最慢</li>
-        <li>盯着菜的颜色和形状，<b>刚好熟就捞</b></li>
-        <li>毛肚要按住<b>七上八下</b>：提起来、放下去，7~8 次</li>
-        <li>同桌的筷子伸过来时，<b>点它挡开</b></li>
-      </ul>
-      <p id="best" class="best"></p>
-      <button id="btn-start" class="cta" type="button">开吃</button>
+
+      <div id="daily" class="daily">
+        <div class="daily-head"><b>今日火锅</b><small id="d-date"></small><em id="d-bonus" class="bonus">今日首局金币 ×2</em></div>
+        <div id="d-menu" class="d-menu"></div>
+        <div class="daily-foot"><small id="d-best">所有人今天吃同一锅，比比谁分高</small><button id="btn-daily" class="cta small" type="button">吃今日这锅</button></div>
+      </div>
+
+      <div id="scenes" class="scenes"></div>
+
+      <div class="home-nav">
+        <button id="btn-shop" class="ghost" type="button">菜单 · 解锁</button>
+        <button id="btn-codex" class="ghost" type="button">图鉴 · 成就</button>
+      </div>
       <button id="btn-tutorial" class="link" type="button">新手教学</button>
+    </div>
+  </section>
+
+  <section id="shop" class="overlay panel hidden">
+    <div class="sheet">
+      <div class="sheet-head"><b>菜单 · 解锁</b><span class="chip coin-chip"><i class="coin"></i><b id="s-coins">0</b></span></div>
+      <p class="sheet-sub">点菜品选择带不带上桌（<b id="s-count">0</b> / 8）。每局得分会换成金币，攒够了解锁新菜。</p>
+      <div id="s-list" class="s-list"></div>
+      <button class="ghost close" data-close="shop" type="button">返回</button>
+    </div>
+  </section>
+
+  <section id="codex" class="overlay panel hidden">
+    <div class="sheet">
+      <div class="sheet-head"><b>图鉴 · 成就</b><span id="c-title" class="chip title-chip"></span></div>
+      <p id="c-next" class="sheet-sub"></p>
+      <div class="tabs"><button class="tab on" data-tab="dex" type="button">菜品图鉴</button><button class="tab" data-tab="ach" type="button">成就</button></div>
+      <div id="c-dex" class="c-list"></div>
+      <div id="c-ach" class="c-list hidden"></div>
+      <button class="ghost close" data-close="codex" type="button">返回</button>
     </div>
   </section>
 
@@ -72,11 +102,13 @@
     <div class="result-wrap">
       <img id="r-img" class="r-img" alt="饭局报告">
       <p id="save-tip" class="save-tip"></p>
+      <div id="rewards" class="rewards"></div>
       <div class="r-actions">
         <button id="btn-save" class="cta" type="button">保存饭局报告</button>
         <div class="r-row">
           <button id="btn-share" class="ghost hidden" type="button">分享给好友</button>
           <button id="btn-again" class="ghost" type="button">再来一局</button>
+          <button id="btn-home" class="ghost" type="button">回首页</button>
         </div>
       </div>
     </div>
@@ -87,6 +119,7 @@
 <script src="js/fx.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
+<script src="js/meta.js"></script>
 <script src="js/card.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/main.js"></script>

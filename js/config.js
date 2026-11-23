@@ -22,10 +22,10 @@ HP.FOODS = {
   luncheon:      { name: '午餐肉', mode: 'drop',  a: 5,  b: 12, size: 0.085, price: 8,  depth: 0.12 },
   potato:        { name: '土豆片', mode: 'drop',  a: 8,  b: 15, size: 0.085, price: 6,  depth: 0.12 },
   beef:          { name: '肥牛',   mode: 'swish', a: 4,  b: 6.5, size: 0.095, price: 15, depth: 0.15 },
-  duckintestine: { name: '鸭肠',   mode: 'swish', a: 3,  b: 5,  size: 0.115, price: 18, depth: 0.10 },
+  duckintestine: { name: '鸭肠',   mode: 'swish', a: 3,  b: 5,  size: 0.115, price: 18, depth: 0.10, unlock: 300 },
   maodu:         { name: '毛肚',   mode: 'swish', a: 4,  b: 10,  size: 0.105, price: 25, depth: 0.10, dips: [7, 8] },
   shrimp:        { name: '虾滑',   mode: 'drop',  a: 6,  b: 9,  size: 0.075, price: 20, depth: 0.0, sinker: true },
-  huanghou:      { name: '黄喉',   mode: 'drop',  a: 8,  b: 12, size: 0.110, price: 22, depth: 0.12 },
+  huanghou:      { name: '黄喉',   mode: 'drop',  a: 8,  b: 12, size: 0.110, price: 22, depth: 0.12, unlock: 500 },
   duckblood:     { name: '鸭血',   mode: 'drop',  a: 15, b: 22, size: 0.080, price: 12, depth: 0.30 }
 };
 HP.FOOD_ORDER = ['beef', 'maodu', 'duckintestine', 'shrimp', 'huanghou', 'duckblood', 'luncheon', 'potato'];
@@ -55,6 +55,30 @@ HP.EVENTS = {
   soup:  { text: '服务员：给您加点汤~', sub: '锅里降温了', heat: 0.35, dur: 4.5 },
   fire:  { text: '老王把火开到了最大！', sub: '熟得飞快，盯紧了', heat: 1.75, dur: 5 },
   toast: { text: '领导举杯：来，走一个！', sub: '快点「干杯」', dur: 2.8, ok: 20, miss: -30 }
+};
+
+/* 饭局剧本 */
+HP.SCENES = {
+  bros: { name: '兄弟局', desc: '同桌三个人抢着吃，谁手快谁吃饱', npcs: ['laowang', 'friend', 'boss'], events: ['soup', 'fire', 'toast'] },
+  solo: { name: '一人食', desc: '没人跟你抢，只比火候有多准', npcs: [], events: ['soup', 'fire'] },
+  team: { name: '公司团建', desc: '领导先动筷，挡领导扣分，给领导涮好菜加分', npcs: ['boss', 'laowang'], events: ['toast', 'toast', 'soup', 'fire'],
+          bossFirst: 5, unlockGames: 5 }
+};
+HP.SCENE_ORDER = ['bros', 'solo', 'team'];
+
+/* 可复现的随机数：每日一锅用日期做种子，所有人同一局 */
+HP.rng = function (seed) {
+  var a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+HP.dayKey = function (d) {
+  d = d || new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 };
 
 HP.ASSETS = {

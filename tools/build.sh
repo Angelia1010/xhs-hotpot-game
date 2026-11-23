@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/.."
 rm -rf dist && mkdir -p dist/js dist/img/food dist/img/plate dist/img/scene
 cp index.html style.css dist/
-cp js/config.js js/platform.js js/fx.js js/audio.js js/game.js js/card.js js/tutorial.js js/main.js dist/js/
+cp js/*.js dist/js/
 cp img/food/*.webp dist/img/food/
 cp img/plate/*.webp dist/img/plate/
 for n in pot table card_bg chopsticks_closed hand_laowang hand_boss hand_friend; do cp img/scene/$n.webp dist/img/scene/; done
