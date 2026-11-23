@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>火锅局</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <header id="hud" class="hud">
+    <div class="pill scene"><b>兄弟局</b><small>九宫格 · 川渝</small></div>
+    <div id="timer" class="timer">
+      <svg viewBox="0 0 40 40"><circle class="track" cx="20" cy="20" r="18"/><circle id="ring" class="ring" cx="20" cy="20" r="18"/></svg>
+      <span id="time">1:30</span>
+    </div>
+    <div class="pill score"><span id="score">0</span><small>分</small></div>
+  </header>
+  <div id="combo" class="combo"></div>
+  <div class="tools">
+    <button id="btn-hint" class="tool" type="button">火候提示</button>
+    <button id="btn-sound" class="tool" type="button">声音</button>
+  </div>
+
+  <footer id="tray" class="tray">
+    <div class="tray-tip">按住盘子拖进锅里 · 点锅里的菜捞起来</div>
+    <div id="plates" class="plates"></div>
+  </footer>
+
+  <section id="loading" class="overlay">
+    <div class="card">
+      <h1>火锅局</h1>
+      <p id="loadtext">正在烧锅底…</p>
+      <div class="bar"><i id="loadbar"></i></div>
+    </div>
+  </section>
+
+  <section id="start" class="overlay hidden">
+    <div class="card">
+      <h1>火锅局</h1>
+      <p class="sub">涮得好是技术，吃得好是情商</p>
+      <ul class="rules">
+        <li><b>中间格火最旺</b>，四个角最慢</li>
+        <li>盯着菜的颜色和形状，<b>刚好熟就捞</b></li>
+        <li>老王的筷子伸过来时，<b>点它挡开</b></li>
+      </ul>
+      <button id="btn-start" class="cta" type="button">开吃</button>
+    </div>
+  </section>
+
+  <section id="result" class="overlay hidden">
+    <div class="card result">
+      <small class="eyebrow">本局人格</small>
+      <h1 id="r-title">毛肚刺客</h1>
+      <p id="r-sub" class="sub"></p>
+      <div class="big"><span id="r-score">0</span><small>分</small></div>
+      <div class="stats">
+        <div><b id="r-perfect">0</b><span>完美火候</span></div>
+        <div><b id="r-combo">0</b><span>最高连击</span></div>
+        <div><b id="r-stolen">0</b><span>被抢走</span></div>
+        <div><b id="r-blocked">0</b><span>挡住老王</span></div>
+        <div><b id="r-raw">0</b><span>吃到生的</span></div>
+      </div>
+      <button id="btn-again" class="cta" type="button">再来一局</button>
+    </div>
+  </section>
+</div>
+<script src="js/config.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
