@@ -65,6 +65,8 @@ HP.PTS = { beef: 1.3, tenderbeef: 1.4, maodu: 1.2, strawberry_maodu: 1.2, duckin
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
+HP.VERSION = '1.0.3';
+HP.RULES = 2;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
 HP.BORED = { win: 5, n: 3, mul: 0.4 };   // 最近 5 块里同一道菜占 3 块就「吃腻了」：分数 ×0.4、不涨连击
 HP.BALANCE_BONUS = 80;        // 一局荤素各吃 3 块以上的加分

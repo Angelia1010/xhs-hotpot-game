@@ -302,3 +302,5 @@ body {
 
 .s-head { grid-column: 1 / -1; margin: 6px 2px -2px; font-size: 13px; font-weight: 900; color: #ffb347; letter-spacing: 2px; }
 .s-item.pot img { width: 64%; }
+
+.ver { margin-top: 4px; font-size: 11px; color: rgba(255,240,220,0.4); letter-spacing: 1px; }

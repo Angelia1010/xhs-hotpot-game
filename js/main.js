@@ -133,6 +133,8 @@
       var day = HP.dayKey(), D = HP.dailySetup(day);
       $('h-title').textContent = HP.titleOf(profile);
       $('h-coins').textContent = profile.coins;
+      $('h-ver').textContent = 'v' + HP.VERSION + (profile.rulesReset ? ' · 计分规则已更新，最高分重新计算' : '');
+      if (profile.rulesReset) { profile.rulesReset = false; saveProfile(); }
       var yest = HP.dayKey(new Date(Date.now() - 864e5));
       var alive = profile.streak.last === day || profile.streak.last === yest;
       $('h-streak').textContent = alive && profile.streak.n ? '连续 ' + profile.streak.n + ' 天' : '今天还没吃';

@@ -52,7 +52,7 @@ var HP = window.HP = window.HP || {};
   /* ---------- 存档 ---------- */
   HP.newProfile = function () {
     return {
-      v: 2, tutorialDone: false, best: 0, bestBy: {}, games: 0, coins: 0,
+      v: 2, rules: HP.RULES, tutorialDone: false, best: 0, bestBy: {}, games: 0, coins: 0,
       unlocked: HP.FOOD_ORDER.filter(function (id) { return !HP.FOODS[id].unlock; }),
       loadout: null,
       totals: { perfect: 0, authentic: 0, blocked: 0, stolen: 0, served: 0, toastOk: 0, eaten: 0, raw: 0 },
@@ -72,6 +72,9 @@ var HP = window.HP = window.HP || {};
     HP.FOOD_ORDER.forEach(function (id) { if (!HP.FOODS[id].unlock && p.unlocked.indexOf(id) < 0) p.unlocked.push(id); });
     if (p.pots.indexOf('jiugong') < 0) p.pots.unshift('jiugong');
     if (p.pots.indexOf(p.pot) < 0) p.pot = 'jiugong';
+    // 计分规则改过（防刷分），旧规则下的最高分不再算数
+    if ((old.rules || 1) < HP.RULES) { p.best = 0; p.bestBy = {}; p.daily.best = 0; p.rulesReset = true; }
+    p.rules = HP.RULES;
     p.v = 2;
     return p;
   };
