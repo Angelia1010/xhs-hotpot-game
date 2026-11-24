@@ -537,6 +537,7 @@
       }
       var got = HP.PERSONAS.filter(function (x) { return profile.personas[x.id]; }).length;
       rw.appendChild(el('div', 'rw-line', '<span>饭局人格图鉴</span><b>' + got + ' / ' + HP.PERSONAS.length + '</b>'));
+      (r.cardUp || []).forEach(function (c) { rw.appendChild(el('div', 'rw-up', '解锁新饭局卡：' + c.name)); });
       if (r.titleUp) rw.appendChild(el('div', 'rw-up', '称号升级：' + r.titleUp));
       if (r.streakUp) rw.appendChild(el('div', 'rw-line', '<span>连续打卡</span><b>' + profile.streak.n + ' 天</b>'));
       $('btn-share').classList.toggle('hidden', !P.canShare);

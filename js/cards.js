@@ -3,7 +3,8 @@ var HP = window.HP = window.HP || {};
 
 (function () {
   /* scenes：能在哪些剧本出现；swap：换座位上的人；noSteal：谁今天不抢菜；prefs：谁只点什么；
-     extraTray：托盘额外加的菜；bond：需要某人羁绊满级才会出现 */
+     extraTray：托盘额外加的菜；bond：需要某人羁绊满级才会出现；
+     unlockGames：玩满几局才会出现（难懂的卡不给新手，也不进每日一锅） */
   HP.CARDS = [
     { id: 'heartbreak', name: '老王失恋了', color: '#5b6fa8',
       rule: '老王只点毛肚和肥牛，喂他分数 ×1.5；他今天没心情抢菜', goal: '喂老王 3 块毛肚', need: 3,
@@ -16,7 +17,7 @@ var HP = window.HP = window.HP || {};
       rule: '小美的位置换成了新人。新人等不到菜也不吭声，只会默默失望', goal: '给新人夹 3 块菜', need: 3,
       scenes: ['team'], swap: { friend: 'newbie' } },
     { id: 'blackout', name: '店里停电了', color: '#3a3550',
-      rule: '灯全黑了，火力忽大忽小，火候提示也看不见——只能看菜上的小星星', goal: '完美火候 6 块', need: 6,
+      rule: '灯全黑了，火力忽大忽小，火候提示也看不见——只能看菜上的小星星', goal: '完美火候 6 块', need: 6, unlockGames: 5,
       scenes: ['bros', 'team', 'date', 'family', 'solo'] },
     { id: 'aa', name: '今天 AA', color: '#9a7b3a',
       rule: '自己吃要按菜价扣分，夹给别人不扣；¥20 以上的贵菜夹给别人分数 ×2', goal: '自己吃了 3 块以上，花费不超过 ¥60', need: 60,
@@ -41,6 +42,7 @@ var HP = window.HP = window.HP || {};
     return HP.CARDS.filter(function (c) {
       if (c.scenes.indexOf(sceneId) < 0) return false;
       if (c.bond && (!profile || HP.bondLevel(profile, c.bond) < 5)) return false;
+      if (c.unlockGames && (!profile || (profile.games || 0) < c.unlockGames)) return false;
       return true;
     });
   };

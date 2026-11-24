@@ -185,6 +185,7 @@ var HP = window.HP = window.HP || {};
     T.served += s.served; T.toastOk += s.toastOk; T.eaten += s.eaten; T.raw += s.raw;
     for (k in s.perfectBy) if (s.perfectBy.hasOwnProperty(k)) p.perfectBy[k] = (p.perfectBy[k] || 0) + s.perfectBy[k];
     p.games++;
+    out.cardUp = HP.CARDS.filter(function (c) { return c.unlockGames === p.games; });
     var newTitle = HP.titleOf(p);
     if (newTitle !== oldTitle) out.titleUp = newTitle;
 
