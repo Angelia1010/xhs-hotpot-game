@@ -340,13 +340,24 @@ async def main():
         ok('存档写进小红书 Storage', saved == 'yuanyang', saved)
         ok('模拟容器无报错', not errs, errs[:3]); await pg.close()
 
-        # 客户端版本低于 9.51、或者没授权：排行榜整块不出现，也不提交
+        # 普通浏览器预览：首页照样有排行榜入口，点开说明要在小红书 App 里看
+        pg, errs = await page(b)
+        await js(pg, VETERAN)
+        hb = json.loads(await js(pg, "JSON.stringify({show:!document.getElementById('h-rank').classList.contains('hidden'), txt:document.getElementById('h-rank-text').textContent, y:document.getElementById('h-rank').getBoundingClientRect().top})"))
+        await js(pg, "document.getElementById('h-rank').click()"); await pg.wait_for_timeout(400)
+        off = await js(pg, "document.getElementById('rk-body').textContent")
+        ok('浏览器预览：首页有排行榜入口，点开说明去小红书 App 里看', hb['show'] and '小红书 App' in hb['txt'] and '要在小红书 App 里看' in off and await js(pg, "document.getElementById('rk-me').classList.contains('hidden')"), (hb, off[:40]))
+        await js(pg, "document.querySelector('#rank [data-close]').click()"); await pg.wait_for_timeout(300)
+        ok('浏览器预览：排行榜返回回首页、无报错', await js(pg, "!document.getElementById('home').classList.contains('hidden')") and not errs, errs[:2])
+        await pg.close()
+
+        # 客户端版本低于 9.51：入口提示升级，不提交；没授权（1005）：按文档隐藏入口
         pg, errs = await page(b, init=XHS_OLD_CLIENT)
         await js(pg, VETERAN)
-        old = await js(pg, "HP.platform.rankOk===false && document.getElementById('h-rank').classList.contains('hidden')")
+        old = await js(pg, "HP.platform.rankOk===false && !document.getElementById('h-rank').classList.contains('hidden') && document.getElementById('h-rank-text').textContent.indexOf('9.51')>=0")
         await js(pg, "document.getElementById('btn-daily').click()"); await pg.wait_for_timeout(2600)
         await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1500)
-        ok('客户端 9.50：不显示排行榜、不提交成绩', old and await js(pg, "!__calls.some(c=>c[0]==='submit') && document.getElementById('r-rank').classList.contains('hidden')"))
+        ok('客户端 9.50：首页入口提示升级到 9.51，不提交成绩、结算页不显示名次', old and await js(pg, "!__calls.some(c=>c[0]==='submit') && document.getElementById('r-rank').classList.contains('hidden')"))
         await pg.close()
         pg, errs = await page(b, init=XHS_MOCK + "window.__deny=1;")
         await pg.wait_for_timeout(500)

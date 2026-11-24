@@ -1064,8 +1064,17 @@
         var b = el('button', p === per ? 'on' : ''); b.type = 'button'; b.setAttribute('data-per', p); b.textContent = HP.PERIOD[p]; pc.appendChild(b);
       });
       pc.classList.toggle('hidden', !(T && T.periods.length > 1));
-      body.innerHTML = '<div class="rk-note">加载中…</div>'; me.className = 'rk-me hidden';
+      me.className = 'rk-me hidden';
       $('rk-fac').textContent = profile.faction ? HP.FACTIONS[profile.faction].name : '未选阵营';
+      if (!P.rankOk) {
+        // 当前环境用不了：说清楚去哪儿能看，不画假榜单
+        pc.classList.add('hidden');
+        body.innerHTML = '';
+        body.appendChild(el('div', 'rk-off', '<b>排行榜要在小红书 App 里看</b>' + (HP.RANK_NOTE[P.rankState] || '这个版本的小红书还没开通排行榜') +
+          '<small>今日火锅、翻台挑战、饭局夜都会上榜，阵营赛比两派总分</small>'));
+        return;
+      }
+      body.innerHTML = '<div class="rk-note">加载中…</div>';
       var stale = function () { return rkTab !== tab || rkPeriod !== per || !visible('rank'); };
       var fail = function () {
         if (stale()) return;
@@ -1145,9 +1154,9 @@
     });
     /* 首页入口：显示今天的名次（缓存 45 秒，不会每次回首页都请求） */
     function homeRank() {
-      var b = $('h-rank');
-      b.classList.toggle('hidden', !P.rankOk);
-      if (!P.rankOk) return;
+      var b = $('h-rank'), note = HP.RANK_NOTE[P.rankState];
+      b.classList.toggle('hidden', !P.rankOk && !note);
+      if (!P.rankOk) { if (note) $('h-rank-text').textContent = note; return; }
       P.myRank(HP.BOARDS.daily, 'day').then(function (m) {
         if (!P.rankOk) { b.classList.add('hidden'); return; }
         $('h-rank-text').textContent = m && m.status === 'EXACT' ? '今日火锅第 ' + m.rank + ' 名 · ' + m.score + ' 分'

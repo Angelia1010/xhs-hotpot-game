@@ -524,3 +524,6 @@ body {
 .r-rank em { flex: none; margin-left: 8px; font-style: normal; font-size: 12px; font-weight: 800; color: #ffd35c; }
 .hd-back { flex: none; margin-right: 8px; padding: 4px 10px 4px 6px; border: 0; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 800; color: #ffd35c; background: rgba(0,0,0,0.3); }
 .sheet-head .hd-back + b { flex: 1; }
+.rk-off { margin: 18px 0; padding: 18px 14px; border-radius: 14px; text-align: center; font-size: 13px; line-height: 1.6; color: #ffe9c9; background: rgba(30,8,4,0.6); }
+.rk-off b { display: block; margin-bottom: 4px; font-size: 16px; color: #ffd35c; }
+.rk-off small { display: block; margin-top: 6px; font-size: 11px; opacity: 0.7; }

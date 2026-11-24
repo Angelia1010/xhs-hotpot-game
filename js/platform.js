@@ -109,18 +109,23 @@ var HP = window.HP = window.HP || {};
   /* ---------- 排行榜（内测，客户端 9.51+）：版本够、方法齐才显示；未授权 1005 / 1006 / 白名单 10003 就整块隐藏 ----------
      昵称由平台填充、只在返回值里出现，不采集也不存用户资料；榜单和本人名次本地缓存 45 秒，提交成绩后刷新 */
   var RANK_FNS = ['submitScore', 'getRankList', 'getMyRank'];
+  /* rankState：ok 能用；browser 普通浏览器预览；unknown 读不到客户端版本（电脑模拟器常见）；old 低于 9.51；
+     nofn 方法不全（没开通）；denied 未授权 1005 / 1006 / 白名单 10003。
+     后两种按文档隐藏入口；browser / unknown / old 首页照样显示入口，告诉玩家去哪儿能看 */
   P.rankOk = false;
+  P.rankState = inXhs ? 'unknown' : 'browser';
   P.ready = (function () {
     var sync = readBuild(window.xhs && window.xhs.launchOptions);
     if (sync !== null || !has('getLaunchOptions')) return Promise.resolve(sync);
     return call('getLaunchOptions').then(readBuild).catch(function () { return null; });
   })().then(function (b) {
     P.build = b;
-    P.rankOk = P.atLeast(9510) && RANK_FNS.every(has);
+    P.rankState = !inXhs ? 'browser' : b === null ? 'unknown' : !P.atLeast(9510) ? 'old' : !RANK_FNS.every(has) ? 'nofn' : 'ok';
+    P.rankOk = P.rankState === 'ok';
     return b;
   });
   function code(e) { return e && (e.errCode != null ? e.errCode : e.code); }
-  function denied(e) { var c = code(e); if (c === 1005 || c === 1006 || c === 10003) P.rankOk = false; return Promise.reject(e); }
+  function denied(e) { var c = code(e); if (c === 1005 || c === 1006 || c === 10003) { P.rankOk = false; P.rankState = 'denied'; } return Promise.reject(e); }
   var cache = {};
   function cached(key) { var c = cache[key]; return c && Date.now() - c.t < 45000 ? c.v : undefined; }
   P.submitScore = function (board, score) {
