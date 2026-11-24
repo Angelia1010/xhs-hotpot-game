@@ -156,6 +156,7 @@ var HP = window.HP = window.HP || {};
     this.setPot(opt.pot || 'jiugong');
     this.rng = opt.seed ? HP.rng(opt.seed) : Math.random;
     if (opt.menu) this.menu = opt.menu;
+    this.card = opt.card || null;
     if (this.lay) this.layout.apply(this, this.lay);
   };
   Game.prototype.rr = function (a, b) { return a + this.rng() * (b - a); };
@@ -164,7 +165,8 @@ var HP = window.HP = window.HP || {};
   Game.prototype.reset = function () {
     this.foods = []; this.lift = []; this.npcs = [];
     var ids = this.scene.npcs;
-    var names = this.scene.names || {};
+    var names = this.scene.names || {}, C = this.mode === 'play' ? this.card : null;
+    if (C && C.noSteal) ids = ids.filter(function (id) { return C.noSteal.indexOf(id) < 0; });
     for (var i = 0; i < HP.NPCS.length; i++) if (ids.indexOf(HP.NPCS[i].id) >= 0) this.npcs.push({ cfg: HP.NPCS[i], name: names[HP.NPCS[i].id] || HP.NPCS[i].name, phase: 'idle', t: 0 });
     // 教学里老王总要在场
     if (!this.npcs.length && this.mode === 'tutorial') this.npcs.push({ cfg: HP.NPCS[0], name: HP.NPCS[0].name, phase: 'idle', t: 0 });
@@ -179,8 +181,13 @@ var HP = window.HP = window.HP || {};
                    authentic: 0, toastOk: 0, toastMiss: 0, perfectBy: {}, stolenBy: {}, pickedBy: {},
                    cellUse: this.zones.map(function () { return 0; }), potId: this.potId, veg: 0, meat: 0, strawberry: 0, trip: 0, enoki: 0, balanced: false, served: 0, servedBad: 0, rude: 0, blockedBoss: 0, bored: 0,
                    self: 0, expSelf: 0, servedTo: {}, orders: 0, ordersDone: 0, ordersPerfect: 0, orderMiss: 0, servedExtra: 0,
-                   rawServed: 0, tripServed: 0, speechOk: 0, speechBreak: 0, sceneId: this.sceneId };
+                   rawServed: 0, tripServed: 0, speechOk: 0, speechBreak: 0, sceneId: this.sceneId,
+                   card: C ? C.id : null, cardGoal: 0, selfSpend: 0, dietCheat: 0, songBreak: 0, songOk: 0, propEat: 0, bdId: null };
     this.initDiners();
+    // 饭局卡的开局设置
+    this.flickT = 3; this.songDone = false; this.propDone = false; this.propAt = 20 + Math.random() * 10;
+    this.bd = C && C.id === 'birthday' && this.diners.length ? this.diners[Math.floor(this.rng() * this.diners.length)] : null;
+    if (this.bd) this.stats.bdId = this.bd.id;
     this.waitBoss = this.scene.bossFirst || 0;
     this.heatLabels = 0; this.trip = 0; this.crowd = 1; this.crowdTold = false;
   };
@@ -306,6 +313,13 @@ var HP = window.HP = window.HP || {};
     if (r.kind === 'raw') s.raw++;
     if (r.kind === 'over') s.over++;
     if (!this.hints && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
+    var cid = this.mode === 'play' && this.card ? this.card.id : null;
+    if (cid === 'freemaodu' && r.authentic && gain > 0) gain *= 2;
+    if (cid === 'proposal' && this.event && this.event.type === 'proposal' && r.kind !== 'raw') {
+      if (gain > 0) gain *= 2; s.cardGoal++; s.propEat++;
+      this.fx.text(x, y - 78 * this.unit, '趁乱干饭 ×2', '#ffb3d1', 16 * big);
+    }
+    if (cid === 'aa') { s.selfSpend += F.price; gain -= F.price * 2; this.fx.text(x, y - 78 * this.unit, 'AA -¥' + F.price, '#ffcf8a', 14 * big); }
     var zm = f.cell >= 0 ? (this.pot.mul[f.cell] || 1) : 1;
     if (zm !== 1 && gain > 0) gain = Math.round(gain * zm);
     // 梗菜
@@ -544,9 +558,9 @@ var HP = window.HP = window.HP || {};
     if (!types.length) return;
     this.startEvent(types[Math.floor(this.rng() * types.length)]);
   };
-  Game.prototype.startEvent = function (type) {
+  Game.prototype.startEvent = function (type, over) {
     var cfg = HP.EVENTS[type], i;
-    this.event = { type: type, cfg: cfg, t: 0, done: false };
+    this.event = { type: type, cfg: cfg, t: 0, done: false, over: over || null };
     this.lastEvent = type;
     if (cfg.heat) this.heatTarget = cfg.heat;
     if (type === 'soup') {
@@ -556,7 +570,8 @@ var HP = window.HP = window.HP || {};
       if (this.audio) this.audio.pour();
     }
     if (type === 'fire') { this.shake = 0.45; if (this.audio) this.audio.whoosh(); }
-    if (this.hooks.onEvent) this.hooks.onEvent(type, this.eventCfg(type), true);
+    if (type === 'proposal') this.diners.forEach(function (d) { d.say = '哇！！'; d.sayT = 1.5; d.bounce = 1; });
+    if (this.hooks.onEvent) this.hooks.onEvent(type, over ? Object.assign({}, this.eventCfg(type), over) : this.eventCfg(type), true);
     if (this.hooks.haptic) this.hooks.haptic('event');
   };
   Game.prototype.eventCfg = function (type) {
@@ -566,11 +581,13 @@ var HP = window.HP = window.HP || {};
   /* 讲话时动筷子：每次讲话只罚一次 */
   Game.prototype.speechBreak = function (x, y) {
     var e = this.event;
-    if (!e || e.type !== 'speech' || this.mode !== 'play') return false;
+    if (!e || !HP.QUIET[e.type] || this.mode !== 'play') return false;
     if (!e.broken) {
-      e.broken = true; this.stats.speechBreak++;
-      this.stats.score = Math.max(0, this.stats.score + HP.EVENTS.speech.miss);
-      this.fx.text(x, y - 50 * this.unit, '人家还在讲话呢！' + HP.EVENTS.speech.miss, '#ff8a6a', 18 * Math.max(0.8, this.unit));
+      e.broken = true;
+      if (e.type === 'song') this.stats.songBreak++; else this.stats.speechBreak++;
+      var miss = HP.EVENTS[e.type].miss;
+      this.stats.score = Math.max(0, this.stats.score + miss);
+      this.fx.text(x, y - 50 * this.unit, (e.type === 'song' ? '大家在唱歌呢！' : '人家还在讲话呢！') + miss, '#ff8a6a', 18 * Math.max(0.8, this.unit));
       if (this.hooks.onScore) this.hooks.onScore(this.stats, null);
     }
     return true;
@@ -578,14 +595,18 @@ var HP = window.HP = window.HP || {};
   Game.prototype.endEvent = function () {
     if (!this.event) return;
     var type = this.event.type;
-    if (type === 'speech' && !this.event.broken && this.running) {
-      this.stats.speechOk++; this.stats.score += HP.EVENTS.speech.ok;
-      this.fx.text(this.W / 2, this.potY + this.potSize * 0.2, '听得很认真 +' + HP.EVENTS.speech.ok, '#ffd35c', 18 * Math.max(0.8, this.unit));
+    if (HP.QUIET[type] && !this.event.broken && this.running) {
+      var okv = HP.EVENTS[type].ok;
+      if (type === 'song') this.stats.songOk++; else this.stats.speechOk++;
+      this.stats.score += okv;
+      this.fx.text(this.W / 2, this.potY + this.potSize * 0.2, (type === 'song' ? '生日快乐～ +' : '听得很认真 +') + okv, '#ffd35c', 18 * Math.max(0.8, this.unit));
       if (this.hooks.onScore) this.hooks.onScore(this.stats, null);
     }
+    var afterSong = type === 'song' && this.running;
     this.event = null; this.heatTarget = 1;
     var ph = this.phase(); this.nextEvent = this.rr(ph.event[0], ph.event[1]) * (this.sceneId === 'team' ? 0.75 : 1);
     if (this.hooks.onEvent) this.hooks.onEvent(type, HP.EVENTS[type], false);
+    if (afterSong) { this.startEvent('toast', { text: (this.bd ? this.bd.name : '寿星') + '：谢谢大家，干杯！', sub: '快点「干杯」' }); }
   };
   /* 敬酒：在时限内点「干杯」 */
   Game.prototype.toast = function () {
@@ -602,6 +623,24 @@ var HP = window.HP = window.HP || {};
     this.fx.text(x, y, ok ? '给足面子 +' + gain : '领导脸色不太好 ' + gain, ok ? '#ffd35c' : '#ff8a6a', 20 * Math.max(0.8, this.unit));
     if (ok && this.audio) this.audio.clink();
     if (this.hooks.onScore) this.hooks.onScore(s, null);
+  };
+
+  /* 饭局卡的进行中效果：停电时火力忽大忽小、求婚、生日歌 */
+  Game.prototype.updateCard = function (dt) {
+    var C = this.card; if (!C) return;
+    if (C.id === 'blackout' && !this.event) {
+      this.flickT -= dt;
+      if (this.flickT <= 0) { this.heatTarget = this.rr(0.55, 1.6); this.flickT = this.rr(2.5, 4); }
+    }
+    if (C.id === 'proposal' && !this.propDone && this.elapsed >= this.propAt && this.timeLeft > 8) {
+      if (this.event && this.event.type === 'toast' && !this.event.done) return;
+      if (this.event) this.endEvent();
+      this.propDone = true; this.startEvent('proposal');
+    }
+    if (C.id === 'birthday' && !this.songDone && this.timeLeft <= 9.5) {
+      if (this.event) { if (this.event.type === 'toast' && !this.event.done) this.toastResult(false); this.endEvent(); }
+      this.songDone = true; this.startEvent('song');
+    }
   };
 
   /* ---------- 每帧更新 ---------- */
@@ -650,8 +689,10 @@ var HP = window.HP = window.HP || {};
       if (this.waitBoss <= 0 && this.hooks.onEvent) this.hooks.onEvent('wait', null, false);
     }
     if (!tut) {
-      this.nextNpc -= dt;
+      var watching = this.event && this.event.type === 'proposal';
+      if (!watching) this.nextNpc -= dt;
       if (this.nextNpc <= 0) this.scheduleNpc();
+      this.updateCard(dt);
       this.updateEvents(dt);
     }
     this.updateNpcs(dt);
@@ -726,6 +767,18 @@ var HP = window.HP = window.HP || {};
     ctx.restore();
   };
 
+  /* 停电：四周全黑，只有锅里的炉火亮着；菜上的小星星照样闪 */
+  Game.prototype.drawBlackout = function (ctx) {
+    var cx = this.W / 2, cy = this.potY + this.potSize / 2, f = 0.9 + 0.1 * Math.sin(this.time * 13) * Math.sin(this.time * 3.1);
+    var g = ctx.createRadialGradient(cx, cy, this.potSize * 0.18, cx, cy, this.potSize * 0.75);
+    g.addColorStop(0, 'rgba(10,4,20,' + (0.35 * f) + ')'); g.addColorStop(1, 'rgba(6,2,12,0.82)');
+    ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, this.W, this.H); ctx.restore();
+    var self = this;
+    this.foods.forEach(function (fd) {
+      var F = HP.FOODS[fd.type];
+      if (fd.state === 'in' && fd.d >= F.a && fd.d <= F.b) { var p = self.toScreen(fd.nx, fd.ny); self.drawTwinkle(ctx, p.x + F.size * self.potSize * 0.32, p.y - F.size * self.potSize * 0.28, fd.t + fd.ph); }
+    });
+  };
   Game.prototype.drawTwinkle = function (ctx, x, y, t) {
     var k = 0.55 + 0.45 * Math.sin(t * 7), r = (5 + 3 * k) * this.unit;
     ctx.save(); ctx.globalAlpha = 0.5 + 0.5 * k; ctx.fillStyle = '#fffbe6';
@@ -978,6 +1031,7 @@ var HP = window.HP = window.HP || {};
     }
 
     this.fx.drawSteam(ctx, this.time);
+    if (this.card && this.card.id === 'blackout' && this.mode === 'play') this.drawBlackout(ctx);
     if (this.trip > 0) this.drawTrip(ctx);
     if (this.heatLabels > 0) this.drawHeatLabels(ctx);
     this.fx.drawTexts(ctx);

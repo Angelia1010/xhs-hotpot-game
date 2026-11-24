@@ -19,6 +19,7 @@
     <div class="pill score"><span id="score">0</span><small>分</small></div>
   </header>
   <div id="combo" class="combo"></div>
+  <div id="goal" class="goal"></div>
   <div id="tools" class="tools">
     <button id="btn-hint" class="tool" type="button">火候提示</button>
     <span id="pro" class="pro">老手 ×1.2</span>
@@ -100,7 +101,9 @@
         <p><em class="k">点单</em>同桌头顶冒出想吃的菜，涮好了<b>按住拖到 TA 头像上</b>；点一下是自己吃</p>
         <p><em class="k">护食</em>同桌的筷子伸过来，<b>点它</b>挡开</p>
         <p><em class="k">讲话</em>有人讲话时<b>别动筷子</b>；有人举杯要<b>干杯</b></p>
-        <p><em class="k">人格</em>你怎么吃、怎么照顾人，决定你是<b>哪种饭搭子</b></p>
+        <p><em class="k">饭局卡</em>每局开吃前翻一张卡：老王失恋、停电、AA……规则会变，完成卡上目标拿<b>第三颗星</b></p>
+        <p><em class="k">人格</em>你怎么吃、怎么照顾人，决定你是<b>哪种饭搭子</b>；图鉴里有线索</p>
+        <p><em class="k">朋友圈</em>对同桌越好，羁绊越深，TA 饭后会发朋友圈</p>
         <p><em class="k">得分</em>连续完美有连击；关掉火候提示得分 <b>×1.2</b></p>
         <p><em class="k">别贪多</em>一格最多 <b>2 块</b>；菜下太多汤会不滚</p>
         <p><em class="k">换着吃</em>同一道菜一局吃 <b>3 块</b>以内满分，再吃就腻了；<b>越贵的菜分越高</b></p>
@@ -127,7 +130,8 @@
     <div class="sheet">
       <div class="sheet-head"><b>图鉴</b><span id="c-title" class="chip title-chip"></span></div>
       <p id="c-next" class="sheet-sub"></p>
-      <div class="tabs"><button class="tab on" data-tab="per" type="button">饭局人格</button><button class="tab" data-tab="dex" type="button">菜品图鉴</button><button class="tab" data-tab="ach" type="button">成就</button></div>
+      <div class="tabs"><button class="tab on" data-tab="per" type="button">饭局人格</button><button class="tab" data-tab="dex" type="button">菜品图鉴</button><button class="tab" data-tab="mom" type="button">朋友圈</button><button class="tab" data-tab="ach" type="button">成就</button></div>
+      <div id="c-mom" class="c-list hidden"></div>
       <div id="c-per" class="c-list"></div>
       <div id="c-dex" class="c-list hidden"></div>
       <div id="c-ach" class="c-list hidden"></div>
@@ -135,15 +139,40 @@
     </div>
   </section>
 
+  <section id="flip" class="overlay hidden">
+    <div class="flip-card" id="flip-card">
+      <div class="flip-art" id="flip-art"></div>
+      <small>本局饭局卡</small>
+      <b id="flip-name"></b>
+      <p id="flip-rule"></p>
+      <p class="flip-goal">★★★ 目标：<span id="flip-goal"></span></p>
+      <em>点一下开吃</em>
+    </div>
+  </section>
+
+  <section id="pair" class="overlay panel hidden">
+    <div class="sheet">
+      <div class="sheet-head"><b>测测饭搭子</b></div>
+      <p class="sheet-sub">你朋友测出来是哪种人格？选一个，生成你们俩的配对卡</p>
+      <div id="p-list" class="p-list"></div>
+      <img id="p-img" class="r-img hidden" alt="饭搭子配对卡">
+      <button id="p-save" class="cta hidden" type="button">保存配对卡</button>
+      <button class="ghost close" data-close="pair" type="button">返回</button>
+    </div>
+  </section>
+
   <section id="result" class="overlay hidden">
     <div class="result-wrap">
       <img id="r-img" class="r-img" alt="饭局报告">
       <p id="save-tip" class="save-tip"></p>
+      <div id="r-near" class="r-near hidden"></div>
+      <div id="r-moments" class="r-moments"></div>
       <div id="rewards" class="rewards"></div>
       <div class="r-actions">
         <button id="btn-save" class="cta" type="button">保存饭局报告</button>
         <div class="r-row">
           <button id="btn-share" class="ghost hidden" type="button">分享给好友</button>
+          <button id="btn-pair" class="ghost" type="button">测饭搭子</button>
           <button id="btn-again" class="ghost" type="button">再来一局</button>
           <button id="btn-home" class="ghost" type="button">回首页</button>
         </div>
@@ -157,6 +186,8 @@
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
   <script src="js/table.js"></script>
+  <script src="js/cards.js"></script>
+  <script src="js/moments.js"></script>
 <script src="js/meta.js"></script>
 <script src="js/card.js"></script>
 <script src="js/tutorial.js"></script>

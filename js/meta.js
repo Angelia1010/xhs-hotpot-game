@@ -56,7 +56,8 @@ var HP = window.HP = window.HP || {};
       unlocked: HP.FOOD_ORDER.filter(function (id) { return !HP.FOODS[id].unlock; }),
       loadout: null,
       totals: { perfect: 0, authentic: 0, blocked: 0, stolen: 0, served: 0, toastOk: 0, eaten: 0, raw: 0 },
-      perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0, seen: {}, pots: ['jiugong'], pot: 'jiugong'
+      perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0, seen: {}, pots: ['jiugong'], pot: 'jiugong',
+      stars: {}, cardStars: {}, bond: {}, moments: [], bondSeen: {}
     };
   };
   /* 合并旧存档，缺的字段补默认值 */
@@ -129,6 +130,11 @@ var HP = window.HP = window.HP || {};
     var wd = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100).getDay();
     return { seed: seed, menu: menu, scene: HP.DAILY_SCENES[wd], pot: r() < 0.34 ? 'yuanyang' : 'jiugong' };
   };
+  /* 今日饭局期数：从上线那天算第 1 期 */
+  HP.issueOf = function (day) {
+    var d = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100), s = new Date(2026, 10, 23);
+    return '第 ' + (Math.round((d - s) / 864e5) + 1) + ' 期';
+  };
   HP.dayLabel = function (day) { return Math.floor(day / 100) % 100 + '月' + day % 100 + '日'; };
 
   /* ---------- 一局结束：结算奖励 ---------- */
@@ -144,7 +150,7 @@ var HP = window.HP = window.HP || {};
       out.coins += 20; out.lines.push(['第一次完美 · ' + HP.FOODS[k].name, 20]);
     }
     var bestKey = ctx.daily ? 'daily' : ctx.scene;
-    if (s.score > (p.bestBy[bestKey] || 0) && s.score > 0) {
+    if (s.score > (p.bestBy[bestKey] || 0) && s.score > 0 && !ctx.practice) {
       out.isBest = true; p.bestBy[bestKey] = s.score;
       if (p.games > 0) { out.coins += 50; out.lines.push(['破个人纪录', 50]); }
     }
@@ -161,9 +167,16 @@ var HP = window.HP = window.HP || {};
     p.lastPlayDay = today;
 
     // 每日一锅
+    // 每日一锅：只有当天第一局算今日成绩，之后是练习
     if (ctx.daily) {
       if (p.daily.day !== today) { p.daily.day = today; p.daily.best = 0; p.daily.plays = 0; }
-      p.daily.plays++; p.daily.best = Math.max(p.daily.best, s.score);
+      if (!p.daily.plays) { p.daily.best = s.score; p.daily.stars = s.stars || 0; out.dailyFirst = true; }
+      p.daily.plays++;
+    }
+    // 星级：剧本、饭局卡各记最高
+    if (s.stars != null) {
+      if (s.stars > (p.stars[ctx.scene] || 0)) p.stars[ctx.scene] = s.stars;
+      if (s.card && s.stars > (p.cardStars[s.card] || 0)) p.cardStars[s.card] = s.stars;
     }
 
     // 累计数据
@@ -188,6 +201,22 @@ var HP = window.HP = window.HP || {};
   HP.PERSONAS = [
     { id: 'trip', name: '见过小人的人', line: '见手青没熟就吃，现在看什么都在跳舞', rare: 'SR', best: 'yangsheng', worst: 'shengchi',
       test: function (s) { return s.trip >= 1; } },
+    { id: 'shilian', name: '失恋陪护师', line: '老王哭了一晚上，你喂了他一晚上毛肚', rare: 'SR', best: 'laomazi', worst: 'ganfan', card: 'heartbreak',
+      hint: '也许在老王最难过的时候……', test: function (s) { return s.card === 'heartbreak' && s.cardGoal >= 3; } },
+    { id: 'jianfei', name: '减肥破坏者', line: '她说不要，你说再吃一口', rare: 'SR', best: 'roushi', worst: 'yangsheng', card: 'diet',
+      hint: '闺蜜减肥的时候，偷偷……', test: function (s) { return s.card === 'diet' && s.dietCheat >= 2; } },
+    { id: 'yinlu', name: '职场引路人', line: '新人记住了你，你是 TA 的第一位好前辈', rare: 'SR', best: 'mianao', worst: 'hushi', card: 'newbie',
+      hint: '公司来了新人……', test: function (s) { return s.card === 'newbie' && s.cardGoal >= 3; } },
+    { id: 'heian', name: '黑暗火候师', line: '灯都灭了，你的火候还是一秒不差', rare: 'SR', best: 'huohou', worst: 'shengchi', card: 'blackout',
+      hint: '看不见的时候也能……', test: function (s) { return s.card === 'blackout' && s.perfect >= 6; } },
+    { id: 'aa', name: 'AA 战士', line: '这顿饭你只花了一份毛肚钱，吃得一点不少', rare: 'SR', best: 'guicai', worst: 'laomazi', card: 'aa',
+      hint: '有人提议 AA 的时候……', test: function (s) { return s.card === 'aa' && s.self >= 3 && s.selfSpend <= 60; } },
+    { id: 'shengri', name: '生日宴主持人', line: '歌唱得齐，菜夹得勤，寿星感动哭了', rare: 'SR', best: 'qifen', worst: 'moyu', card: 'birthday',
+      hint: '有人过生日的时候……', test: function (s) { return s.card === 'birthday' && s.cardGoal >= 2 && !s.songBreak && s.songOk >= 1; } },
+    { id: 'chenluan', name: '趁乱干饭人', line: '全场都在看求婚，只有你在认真吃', rare: 'SR', best: 'ganfan', worst: 'qifen', card: 'proposal',
+      hint: '别人都在看热闹的时候……', test: function (s) { return s.card === 'proposal' && s.propEat >= 3; } },
+    { id: 'zhugong', name: '神助攻', line: '老王的终身大事，有一半功劳是你的', rare: 'SSR', best: 'laomazi', worst: 'ganfan', card: 'gfdate',
+      hint: '老王有一天会带一个人来……', test: function (s) { return s.card === 'gfdate' && s.cardGoal >= 3; } },
     { id: 'tianxuan', name: '天选饭搭子', line: '技术好、会照顾人、还不抢菜，谁不想跟你吃火锅', rare: 'SSR', best: 'tianxuan', worst: 'ganfan',
       test: function (s, x) { return s.orders >= 4 && x.serveRatio >= 0.3 && x.serveRatio <= 0.75 && x.perfRate >= 0.7 && s.orderMiss <= 1 && !s.toastMiss && !s.speechBreak && s.score >= 2200; } },
     { id: 'danshen', name: '单身原因找到了', line: '相亲对象饿着肚子，你吃得满嘴流油', rare: 'R', best: 'ganfan', worst: 'laomazi',
@@ -235,6 +264,43 @@ var HP = window.HP = window.HP || {};
     { id: 'suiyuan', name: '随缘干饭人', line: '不争不抢，吃得开心最重要', rare: 'N', best: 'hushi', worst: 'huohou',
       test: function () { return true; } }
   ];
+  /* 图鉴里没拿过的人格给一句模糊线索 */
+  var HINTS = {
+    trip: '跟某种蘑菇有关……', tianxuan: '什么都做得刚刚好的人', danshen: '相亲的时候只顾着自己吃', xiangqin: '相亲的时候很会照顾人',
+    bieren: '家宴上，七大姑最喜欢的那种孩子', duanshui: '每个人都照顾得一样多', tianpin: '火锅里出现了不该出现的水果', qishang: '毛肚涮得特别讲究',
+    huohou: '几乎每一块都是完美', laomazi: '自己不吃，一直给别人夹', mianao: '很会照顾领导', shekong: '不接酒，只会默默给人夹菜',
+    qifen: '敬酒、讲话一个不落', hushi: '谁的筷子都别想伸过来', beiqiang: '总是被人抢', shengchi: '不熟也敢吃', xiedian: '煮得太久了',
+    jinzhengu: '跟某种菜缠斗', ganfan: '只顾自己吃', guicai: '只挑贵的吃', roushi: '一口青菜都不碰', yangsheng: '素菜吃得比肉多',
+    moyu: '一局只动了几筷子', suiyuan: '什么都不特别'
+  };
+  HP.PERSONAS.forEach(function (x) { if (!x.hint) x.hint = HINTS[x.id] || ''; });
+
+  /* 差一点就是另一个人格：只差一项、差得不多时，告诉玩家差什么 */
+  var NEAR = {
+    mianao: function (s) { var b = s.servedTo.boss || 0; return b === 2 && !s.toastMiss ? '再给领导夹 1 块' : null; },
+    laomazi: function (s, x) { return s.served >= 3 && x.serveRatio >= 0.45 && x.serveRatio < 0.6 ? '再多喂别人几块，少吃两口' : null; },
+    qishang: function (s) { return s.authentic === 2 ? '再涮 1 次正宗七上八下' : null; },
+    huohou: function (s, x) { return x.total >= 8 && x.perfRate >= 0.78 && x.perfRate < 0.9 ? '完美率再高一点（这局 ' + Math.round(x.perfRate * 100) + '%，要 90%）' : null; },
+    hushi: function (s) { return s.blocked === 3 ? '再挡 1 双筷子' : null; },
+    duanshui: function (s, x) { return x.diners >= 2 && x.minFed >= 2 && x.maxFed - x.minFed <= 2 && !(x.minFed >= 3 && x.maxFed - x.minFed <= 1) ? '每个人都照顾得再平均一点' : null; },
+    qifen: function (s) { return s.toastOk + s.speechOk === 1 && !s.toastMiss && !s.speechBreak ? '再接一次酒、或者认真听一次讲话' : null; },
+    tianxuan: function (s, x) { return s.orders >= 4 && x.serveRatio >= 0.3 && x.serveRatio <= 0.75 && x.perfRate >= 0.6 && s.score >= 1600 && s.orderMiss <= 2 ? '再稳一点，就是传说人格' : null; },
+    xiangqin: function (s) { return s.sceneId === 'date' && (s.servedTo.date || 0) === 3 ? '再给相亲对象夹 1 块' : null; },
+    bieren: function (s) { return s.sceneId === 'family' && (s.servedTo.auntie || 0) === 2 && !s.speechBreak ? '再给七大姑夹 1 块' : null; }
+  };
+  HP.nearPersona = function (s, got, owned) {
+    var x = HP.personaMetrics(s), best = null, order = { SSR: 4, SR: 3, R: 2, N: 1 };
+    HP.PERSONAS.forEach(function (p) {
+      if (p.id === got.id) return;
+      var txt = null;
+      if (p.card) { if (s.card === p.card) { var C = HP.cardById(p.card), pr = HP.cardProgress(C, s); if (pr && !pr.done && pr.need - pr.cur === 1) txt = '饭局目标只差 1 次'; } }
+      else if (NEAR[p.id]) txt = NEAR[p.id](s, x);
+      if (!txt) return;
+      var score = order[p.rare] + (owned[p.id] ? 0 : 5);
+      if (!best || score > best.score) best = { p: p, text: txt, score: score };
+    });
+    return best;
+  };
   HP.RARE = { N: '普通', R: '稀有', SR: '罕见', SSR: '传说' };
   HP.personaById = function (id) { for (var i = 0; i < HP.PERSONAS.length; i++) if (HP.PERSONAS[i].id === id) return HP.PERSONAS[i]; return null; };
   HP.personaMetrics = function (s) {

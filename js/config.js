@@ -61,7 +61,7 @@ HP.FOODS = {
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
-HP.VERSION = '1.1.0';
+HP.VERSION = '1.2.0';
 HP.RULES = 4;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
 /* 越贵的菜分越高：¥5 ×0.7 … ¥15 ×1.1 … ¥30 ×1.7 */
@@ -97,8 +97,11 @@ HP.EVENTS = {
   soup:  { text: '服务员：给您加点汤~', sub: '锅里降温了', heat: 0.35, dur: 4.5 },
   fire:  { text: '老王把火开到了最大！', sub: '熟得飞快，盯紧了', heat: 1.75, dur: 5 },
   toast: { text: '领导举杯：来，走一个！', sub: '快点「干杯」', dur: 2.8, ok: 20, miss: -30 },
-  speech: { text: '领导：我简单讲两句……', sub: '讲话时别动筷子', dur: 4.5, ok: 30, miss: -30 }
+  speech: { text: '领导：我简单讲两句……', sub: '讲话时别动筷子', dur: 4.5, ok: 30, miss: -30 },
+  song: { text: '大家一起唱生日歌！', sub: '唱歌的时候别动筷子', dur: 5.5, ok: 40, miss: -30 },
+  proposal: { text: '隔壁桌有人求婚了！', sub: '全桌都在看热闹，趁现在多吃几口', dur: 6 }
 };
+HP.QUIET = { speech: 1, song: 1 };   // 这些事件进行中不能动筷子
 
 /* ---------- 同桌的人：坐在锅对面，会点单、会抢菜、会有反应 ----------
    seat：L 左 / C 中 / R 右；hand：抢菜时用哪只手（对应 HP.NPCS）
@@ -128,7 +131,17 @@ HP.DINERS = {
     prefs: ['tofu', 'potato', 'napa', 'wintermelon', 'duckblood', 'lotus', 'shiitake', 'luncheon', 'lettuce'],
     order: ['给姑夹块{d}，要软乎的', '{d}给姑来一块', '姑想吃{d}'],
     happy: ['这孩子真懂事', '比你表哥强多了', '好孩子，多吃点'], meh: ['还行，就是硬了点', '凑合'],
-    bad: ['哎哟这没熟啊', '姑牙不好，咬不动'], miss: ['现在的年轻人哦……', '光顾着自己吃'], thanks: ['哎哟乖', '你也多吃'] }
+    bad: ['哎哟这没熟啊', '姑牙不好，咬不动'], miss: ['现在的年轻人哦……', '光顾着自己吃'], thanks: ['哎哟乖', '你也多吃'] },
+  newbie: { name: '新人', hand: 'friend', color: '#7fa7d9', auth: 0, quiet: true,
+    prefs: ['lettuce', 'potato', 'tofu', 'luncheon', 'napa', 'enoki', 'shrimp'],
+    order: ['那个……我能吃块{d}吗', '{d}……可以吗', '（小声）{d}'],
+    happy: ['谢谢前辈！', '前辈人真好', '（感动得眼泪汪汪）'], meh: ['谢、谢谢', '嗯嗯！'],
+    bad: ['（硬着头皮吃了）', '没、没事的'], miss: ['（默默低头）', '（悄悄放下了筷子）'], thanks: ['啊，谢谢前辈', '受宠若惊'] },
+  gf: { name: '老王女朋友', hand: 'friend', color: '#b8475a', auth: 0.3,
+    prefs: ['tenderbeef', 'shrimp', 'maodu', 'duckintestine', 'lotus', 'huanghou', 'beef', 'enoki'],
+    order: ['帮我涮块{d}呗', '听说你涮{d}很厉害？', '{d}来一块~'],
+    happy: ['老王，学着点！', '难怪老王总夸你', '这口绝了'], meh: ['还行还行', '一般般啦'],
+    bad: ['这……老王你朋友靠谱吗', '生的啊！'], miss: ['老王，你这朋友不太行啊', '算了我自己来'], thanks: ['谢啦', '你人真好'] }
 };
 
 /* 饭局剧本 */
@@ -172,7 +185,10 @@ HP.dayKey = function (d) {
 HP.ASSETS = {
   optional: (function () {
     var out = [];
-    ['laowang', 'friend', 'boss', 'date', 'auntie'].forEach(function (id) { ['wait', 'happy', 'angry'].forEach(function (m) { out.push('avatar_' + id + '_' + m); }); });
+    ['laowang', 'friend', 'boss', 'date', 'auntie', 'newbie', 'gf'].forEach(function (id) { ['wait', 'happy', 'angry'].forEach(function (m) { out.push('avatar_' + id + '_' + m); }); });
+    ['heartbreak', 'diet', 'newbie', 'blackout', 'aa', 'birthday', 'proposal', 'freemaodu', 'gfdate'].forEach(function (id) { out.push('card_' + id); });
+    ['laowang_1', 'laowang_2', 'friend_1', 'friend_2', 'boss_1', 'boss_2', 'date_1', 'date_2', 'auntie_1', 'auntie_2', 'newbie_1', 'gf_1'].forEach(function (id) { out.push('moment_' + id); });
+    out.push('bowl', 'pair_bg');
     return out;
   })(),
   scene: ['pot', 'pot_yuanyang', 'table', 'card_bg', 'chopsticks_closed', 'hand_laowang', 'hand_boss', 'hand_friend'],

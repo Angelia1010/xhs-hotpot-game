@@ -22,9 +22,12 @@ var HP = window.HP = window.HP || {};
 
   G.initDiners = function () {
     var S = this.scene, self = this;
+    var K = this.mode === 'play' ? this.card : null;
     this.diners = (S.diners || []).map(function (p, i) {
-      var C = HP.DINERS[p[0]];
-      return { id: p[0], cfg: C, seat: p[1], name: (S.names && S.names[p[0]]) || C.name,
+      var id = (K && K.swap && K.swap[p[0]]) || p[0], C = HP.DINERS[id], swapped = id !== p[0];
+      var prefs = K && K.prefs && K.prefs[id];
+      if (prefs) C = Object.assign({}, C, { prefs: prefs });
+      return { id: id, cfg: C, seat: p[1], name: (!swapped && S.names && S.names[id]) || C.name, shy: !!(K && K.shy && K.shy.indexOf(id) >= 0),
                order: null, cool: HP.ORDER_FIRST + i * 2.2, mood: 'wait', moodT: 0, say: null, sayT: 0,
                fed: 0, aff: 0, bounce: 0 };
     });
@@ -58,7 +61,7 @@ var HP = window.HP = window.HP || {};
 
   G.updateDiners = function (dt) {
     if (!this.diners || !this.diners.length) return;
-    var ph = this.phase(), active = 0, i, d;
+    var ph = this.phase(), active = 0, i, d, watching = this.event && this.event.type === 'proposal';
     for (i = 0; i < this.diners.length; i++) if (this.diners[i].order) active++;
     for (i = 0; i < this.diners.length; i++) {
       d = this.diners[i];
@@ -66,21 +69,21 @@ var HP = window.HP = window.HP || {};
       if (d.sayT > 0) d.sayT -= dt;
       if (d.moodT > 0) { d.moodT -= dt; if (d.moodT <= 0) d.mood = 'wait'; }
       if (d.order) {
-        d.order.t += dt;
+        if (!watching) d.order.t += dt;
         if (d.order.t >= d.order.ttl) this.missOrder(d);
-      } else if (this.waitBoss <= 0 && this.timeLeft > 5) {
+      } else if (this.waitBoss <= 0 && this.timeLeft > 5 && !d.shy && !watching) {
         d.cool -= dt;
         if (d.cool <= 0 && active < ph.maxOrders) { this.newOrder(d); active++; }
       }
     }
   };
   G.missOrder = function (d) {
-    var s = this.stats, F = HP.FOODS[d.order.type];
-    s.orderMiss++; d.aff--; s.score = Math.max(0, s.score - 15);
+    var s = this.stats, F = HP.FOODS[d.order.type], quiet = d.cfg.quiet;
+    s.orderMiss++; d.aff--; if (!quiet) s.score = Math.max(0, s.score - 15);
     d.order = null; d.cool = this.rr(3, 5);
     this.setMood(d, 'angry', 2.2);
     this.dinerSay(d, pick(d.cfg.miss, this.rng), 2.2);
-    this.fx.text(d.x, d.y + d.r * 1.6, '没等到' + F.name + ' -15', '#ff9b7a', 14 * Math.max(0.8, this.unit));
+    this.fx.text(d.x, d.y + d.r * 1.6, '没等到' + F.name + (quiet ? '' : ' -15'), '#ff9b7a', 14 * Math.max(0.8, this.unit));
     if (this.hooks.onScore) this.hooks.onScore(s, null);
   };
 
@@ -102,7 +105,19 @@ var HP = window.HP = window.HP || {};
   G.serve = function (f, d, x, y) {
     var r = this.rate(f), s = this.stats, F = HP.FOODS[f.type], big = Math.max(0.8, this.unit);
     var o = d.order, match = o && o.type === f.type, gain, good = r.kind === 'perfect' || r.kind === 'ok';
+    var cid = this.mode === 'play' && this.card ? this.card.id : null;
     this.speechBreak(x, y);
+    // 减肥的闺蜜：给她夹肉，嘴上说不要……
+    if (cid === 'diet' && d.id === 'friend' && !F.veg && good) {
+      s.dietCheat++; d.aff += 1; s.served++; d.fed++; s.servedTo[d.id] = (s.servedTo[d.id] || 0) + 1; s.servedExtra++;
+      if (r.kind === 'perfect') { s.perfect++; s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1; }
+      s.score += 30; this.setMood(d, 'happy', 1.8); this.dinerSay(d, '不要不要……（吃了）', 2);
+      this.fx.text(d.x, d.y + d.r * 1.55, '偷偷投喂 +30', '#ffd35c', 18 * big);
+      if (this.audio) this.audio.crunch(r.kind === 'perfect');
+      if (this.hooks.onScore) this.hooks.onScore(s, r);
+      this.emit('serve', { diner: d.id, type: f.type, kind: r.kind, match: false });
+      return r;
+    }
     if (match) {
       if (r.kind === 'perfect') {
         var authMiss = o.auth && !r.authentic;
@@ -126,6 +141,14 @@ var HP = window.HP = window.HP || {};
       else { s.servedBad++; d.aff -= 1; this.setMood(d, 'angry', 1.6); this.dinerSay(d, pick(d.cfg.bad, this.rng), 1.8); }
       s.servedExtra++;
     }
+    // 饭局卡：目标计数、分数加成
+    if (cid === 'heartbreak' && d.id === 'laowang') { if (gain > 0) gain = Math.round(gain * 1.5); if (f.type === 'maodu' && good) s.cardGoal++; }
+    if (cid === 'diet' && d.id === 'friend' && match && good) s.cardGoal++;
+    if (cid === 'newbie' && d.id === 'newbie' && good) s.cardGoal++;
+    if (cid === 'birthday' && this.bd === d && good) s.cardGoal++;
+    if (cid === 'gfdate' && d.id === 'gf' && match && r.kind === 'perfect') s.cardGoal++;
+    if (cid === 'aa' && F.price >= 20 && gain > 0) gain *= 2;
+    if (cid === 'freemaodu' && r.authentic && gain > 0) gain *= 2;
     if (r.authentic) s.authentic++;
     if (r.kind === 'perfect') { s.perfect++; s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1; }
     if (r.kind === 'raw') s.rawServed++;
@@ -171,6 +194,7 @@ var HP = window.HP = window.HP || {};
         var s = r * 2.5;
         ctx.drawImage(im, d.x - s / 2, d.y - s / 2 - r * 0.05, s, s);
       } else self.drawFace(ctx, d, r);
+      if (self.bd === d) self.drawCrown(ctx, d.x, d.y - r * 1.02, r);
       // 名字
       ctx.font = '700 ' + Math.round(11 * u) + 'px "PingFang SC","Microsoft YaHei",sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -182,6 +206,15 @@ var HP = window.HP = window.HP || {};
       if (d.order) self.drawOrder(ctx, d);
       if (d.say && d.sayT > 0) self.drawSay(ctx, d);
     });
+  };
+  /* 寿星的生日帽 */
+  G.drawCrown = function (ctx, x, y, r) {
+    ctx.save(); ctx.translate(x + r * 0.25, y); ctx.rotate(0.25);
+    ctx.fillStyle = '#ff6fa0'; ctx.beginPath(); ctx.moveTo(-r * 0.32, r * 0.1); ctx.lineTo(0, -r * 0.62); ctx.lineTo(r * 0.32, r * 0.1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffe36b'; ctx.beginPath(); ctx.arc(0, -r * 0.64, r * 0.11, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 0.06;
+    ctx.beginPath(); ctx.moveTo(-r * 0.2, -r * 0.12); ctx.lineTo(r * 0.12, -r * 0.3); ctx.moveTo(-r * 0.27, r * 0.02); ctx.lineTo(r * 0.24, -r * 0.1); ctx.stroke();
+    ctx.restore();
   };
   /* 没素材时的简笔头像：圆脸 + 表情 */
   G.drawFace = function (ctx, d, r) {

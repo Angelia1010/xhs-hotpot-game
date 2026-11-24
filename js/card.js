@@ -60,7 +60,7 @@ var HP = window.HP = window.HP || {};
     ctx.fillStyle = 'rgba(255,226,168,0.9)'; ctx.font = '700 34px ' + FONT;
     ctx.fillText('火锅局 · 饭搭子鉴定', W / 2, 88);
     ctx.font = '500 26px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.6)';
-    ctx.fillText(extra.date + '　' + extra.scene, W / 2, 134);
+    ctx.fillText(extra.date + '　' + extra.scene + (extra.card ? '　·　' + extra.card : ''), W / 2, 134);
 
     // 人格
     ctx.font = '500 32px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.8)';
@@ -86,7 +86,11 @@ var HP = window.HP = window.HP || {};
     ctx.fillText('本局得分', W / 2, 560);
     ctx.font = '900 96px ' + FONT; ctx.fillStyle = '#ffd35c';
     ctx.fillText(String(s.score) + (extra.isBest ? '' : ''), W / 2, 628);
-    if (extra.isBest) { ctx.font = '700 26px ' + FONT; ctx.fillStyle = '#ffb13a'; ctx.fillText('个人新纪录', W / 2, 690); }
+    if (extra.stars != null) {
+      ctx.font = '900 36px ' + FONT;
+      for (var si = 0; si < 3; si++) { ctx.fillStyle = si < extra.stars ? '#ffd35c' : 'rgba(255,240,220,0.22)'; ctx.fillText('★', W / 2 - 50 + si * 50 - (extra.isBest ? 90 : 0), 690); }
+    }
+    if (extra.isBest) { ctx.font = '700 26px ' + FONT; ctx.fillStyle = '#ffb13a'; ctx.fillText('个人新纪录', W / 2 + (extra.stars != null ? 90 : 0), 690); }
 
     // 数据格
     var cells = [
@@ -125,6 +129,46 @@ var HP = window.HP = window.HP || {};
     ctx.font = '700 30px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.95)';
     ctx.fillText('来小红书搜「火锅局」，测测你是哪种饭搭子', W / 2, 1372);
 
+    return c.toDataURL('image/jpeg', 0.85);
+  };
+
+  /* ---------- 饭搭子配对卡 ---------- */
+  function hash(str) { var h = 7; for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 100003; return h; }
+  HP.pairScore = function (a, b) {
+    var key = [a.id, b.id].sort().join('+'), base = 52 + hash(key) % 36;
+    if (a.best === b.id || b.best === a.id) return { n: 96 + hash(key) % 4, v: '天作之合', t: '建议每周一起吃火锅，谁也别跟谁抢' };
+    if (a.worst === b.id || b.worst === a.id) return { n: 18 + hash(key) % 17, v: '八字不合', t: '一起吃火锅建议 AA，最好分锅' };
+    if (a.id === b.id) return { n: 77, v: '同类相吸', t: '一样的吃法，一样的毛病，挺好' };
+    if (base >= 78) return { n: base, v: '默契饭搭子', t: '你涮 TA 夹，配合得刚刚好' };
+    if (base >= 64) return { n: base, v: '还挺合拍', t: '偶尔抢一块肉，问题不大' };
+    return { n: base, v: '需要磨合', t: '先从一起点菜开始培养感情吧' };
+  };
+  HP.renderPairCard = function (images, a, b) {
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var ctx = c.getContext('2d'), bg = images.scene.pair_bg || images.scene.card_bg, sc = Math.max(W / bg.width, H / bg.height);
+    ctx.drawImage(bg, (W - bg.width * sc) / 2, (H - bg.height * sc) / 2, bg.width * sc, bg.height * sc);
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, 'rgba(25,3,0,0.75)'); g.addColorStop(0.45, 'rgba(25,3,0,0.35)'); g.addColorStop(0.7, 'rgba(25,3,0,0.35)'); g.addColorStop(1, 'rgba(15,2,0,0.85)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,226,168,0.9)'; ctx.font = '700 34px ' + FONT; ctx.fillText('火锅局 · 饭搭子配对', W / 2, 90);
+    var r = HP.pairScore(a, b);
+    // 两个人格
+    [[a, '我', 270], [b, 'TA', 810]].forEach(function (it) {
+      ctx.font = '500 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.75)'; ctx.fillText(it[1] + ' 是', it[2], 190);
+      var fs = fitFont(ctx, it[0].name, '900', 64, 440);
+      ctx.lineWidth = 10; ctx.strokeStyle = 'rgba(90,10,0,0.9)'; ctx.lineJoin = 'round'; ctx.strokeText(it[0].name, it[2], 262);
+      ctx.fillStyle = '#ffd35c'; ctx.fillText(it[0].name, it[2], 262);
+      ctx.font = '700 26px ' + FONT; ctx.fillStyle = (RARE_COL[it[0].rare] || RARE_COL.N)[0]; ctx.fillText(HP.RARE[it[0].rare] + ' · ' + it[0].rare, it[2], 320);
+    });
+    ctx.font = '900 60px ' + FONT; ctx.fillStyle = '#fff1c4'; ctx.fillText('×', W / 2, 262);
+    // 默契度
+    ctx.font = '600 32px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.8)'; ctx.fillText('饭搭子默契度', W / 2, 980);
+    ctx.font = '900 170px ' + FONT; ctx.fillStyle = '#ffd35c'; ctx.fillText(r.n + '%', W / 2, 1090);
+    ctx.font = '900 64px ' + FONT; ctx.fillStyle = r.n >= 64 ? '#7dff9a' : '#ff9b7a'; ctx.fillText(r.v, W / 2, 1210);
+    fitFont(ctx, r.t, '600', 36, W - 140); ctx.fillStyle = '#ffe9cf'; ctx.fillText(r.t, W / 2, 1286);
+    ctx.font = '700 30px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.95)';
+    ctx.fillText('来小红书搜「火锅局」，测测你们是不是饭搭子', W / 2, 1384);
     return c.toDataURL('image/jpeg', 0.85);
   };
 })();

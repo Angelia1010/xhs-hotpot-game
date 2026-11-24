@@ -17,7 +17,9 @@
     try {
       var all = HP.FOOD_ORDER.slice().sort(function () { return Math.random() - 0.5; });
       var tray = rd.menu || all.slice(0, 8);
-      g.setup({ scene: rd.scene, pot: rd.pot, seed: rd.seed || 0, menu: tray });
+      var card = rd.card ? HP.cardById(rd.card) : null;
+      if (card && card.extraTray) card.extraTray.forEach(function (id) { if (tray.indexOf(id) < 0) { if (tray.length >= 8) tray.pop(); tray.push(id); } });
+      g.mode = 'play'; g.setup({ scene: rd.scene, pot: rd.pot, seed: rd.seed || 0, menu: tray, card: card });
       g.mode = 'play'; g.hints = rd.hints !== false; g.reset(); g.running = true;
       var dt = 1 / 30, cool = 0.5, holdPlan = null, frame = 0, maxFx = 0, maxFoods = 0, nan = 0;
       if (rd.think != null) sk = Object.assign({}, sk, { think: rd.think });
@@ -30,7 +32,7 @@
         frame++;
         cool -= dt;
         // 讲话时：大概率停手
-        if (g.event && g.event.type === 'speech') { if (g.event.t < dt * 1.5) speechHold = Math.random() < sk.calm; } else speechHold = false;
+        if (g.event && HP.QUIET[g.event.type]) { if (g.event.t < dt * 1.5) speechHold = Math.random() < sk.calm; } else speechHold = false;
         var u = g.unit;
         // 1. 正在涮
         if (g.hold && holdPlan) {
@@ -105,7 +107,7 @@
         stolen: s.stolen, blocked: s.blocked, served: s.served, toastOk: s.toastOk, toastMiss: s.toastMiss, authentic: s.authentic,
         veg: s.veg, meat: s.meat, balanced: s.balanced, trip: s.trip, frames: frame, ended: !g.running, maxFx: maxFx, maxFoods: maxFoods, nan: nan,
         persona: HP.persona(s).name, perfectBy: s.perfectBy, pickedBy: s.pickedBy, self: s.self, orders: s.orders, ordersDone: s.ordersDone, orderMiss: s.orderMiss,
-        speechBreak: s.speechBreak, style: rd.style || '' });
+        speechBreak: s.speechBreak, style: rd.style || '', card: rd.card || '', stars: HP.starsOf(s, card).filter(Boolean).length, goal: (HP.cardProgress(card, s) || {}).done || false });
     } catch (e) { errors.push(rd.skill + '/' + rd.scene + '/' + rd.pot + ': ' + e.message + ' @ ' + (e.stack || '').split('\n')[1]); g.running = false; g.hold = null; g.drag = null; }
   });
   g.running = false; g.hooks.onEnd = savedEnd;

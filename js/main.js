@@ -125,6 +125,7 @@
       var hudH = hud.offsetHeight, trayH = $('tray').offsetHeight;
       $('combo').style.top = (hudH + 2) + 'px';
       $('tools').style.top = (hudH + 2) + 'px';
+      $('goal').style.top = (hudH + 4) + 'px';
       var toolsH = $('tools').offsetHeight + 4;
       $('event').style.bottom = (trayH - 30) + 'px';
       $('coach').style.bottom = (trayH + 6) + 'px';
@@ -142,7 +143,8 @@
       var yest = HP.dayKey(new Date(Date.now() - 864e5));
       var alive = profile.streak.last === day || profile.streak.last === yest;
       $('h-streak').textContent = alive && profile.streak.n ? '连续 ' + profile.streak.n + ' 天' : '今天还没吃';
-      $('d-date').textContent = HP.dayLabel(day) + ' · ' + HP.SCENES[D.scene].name;
+      var dcard = HP.pickCard(D.scene, null, HP.rng(D.seed + 7));
+      $('d-date').textContent = HP.issueOf(day) + ' · ' + HP.SCENES[D.scene].name + (dcard ? ' · ' + dcard.name : '');
       $('d-bonus').style.display = profile.lastPlayDay === day ? 'none' : '';
       var dm = $('d-menu'); dm.innerHTML = '';
       D.menu.forEach(function (id) {
@@ -150,7 +152,7 @@
         it.appendChild(im); it.appendChild(el('small', null, HP.FOODS[id].name)); dm.appendChild(it);
       });
       var dd = profile.daily.day === day ? profile.daily : null;
-      $('d-best').textContent = dd && dd.plays ? '今日最高 ' + dd.best + ' 分 · 已吃 ' + dd.plays + ' 次' : '所有人今天吃同一锅，比比谁分高';
+      $('d-best').textContent = dd && dd.plays ? '今日成绩 ' + dd.best + ' 分' + (dd.stars ? ' ' + '★★★'.slice(0, dd.stars) : '') + ' · 再吃算练习' : '所有人今天吃同一锅、同一张饭局卡，只有第一局算成绩';
 
       var sc = $('scenes'); sc.innerHTML = '';
       HP.SCENE_ORDER.forEach(function (id) {
@@ -158,7 +160,7 @@
         b.type = 'button'; b.setAttribute('data-scene', id);
         var best = profile.bestBy[id];
         b.innerHTML = '<b>' + S.name + '</b><small>' + (ok ? S.desc : '再玩 ' + (S.unlockGames - profile.games) + ' 局解锁') + '</small>' +
-          '<em>' + (ok ? (best ? '最高 ' + best : '开吃') : '未解锁') + '</em>';
+          '<em>' + (ok ? (profile.stars[id] ? '<span class="stars">' + '★★★'.slice(0, profile.stars[id]) + '☆☆☆'.slice(0, 3 - profile.stars[id]) + '</span>' : (best ? '最高 ' + best : '开吃')) : '未解锁') + '</em>';
         sc.appendChild(b);
       });
       $('home').classList.remove('hidden');
@@ -251,9 +253,18 @@
         var n = profile.personas[x.id] || 0; if (n) pg++;
         per.appendChild(el('div', 'c-row ach' + (n ? ' done' : ''),
           '<div class="c-info"><b>' + (n ? x.name : '？？？') + ' <em class="badge r-' + x.rare + '">' + HP.RARE[x.rare] + '</em></b><small>' +
-          (n ? x.line : '还没测出过') + '</small></div><span class="state">' + (n ? '×' + n : '') + '</span>'));
+          (n ? x.line : '线索：' + (x.hint || '还没测出过')) + '</small></div><span class="state">' + (n ? '×' + n : '') + '</span>'));
       });
       document.querySelector('[data-tab="per"]').textContent = '饭局人格 ' + pg + '/' + HP.PERSONAS.length;
+      var mom = $('c-mom'); mom.innerHTML = '';
+      var bonds = el('div', 'bonds');
+      HP.BOND_IDS.forEach(function (id) {
+        var lv = HP.bondLevel(profile, id);
+        bonds.appendChild(el('span', null, HP.DINERS[id].name + ' <i>' + '♥♥♥♥♥'.slice(0, lv) + '</i>' + '♡♡♡♡♡'.slice(0, 5 - lv)));
+      });
+      mom.appendChild(bonds);
+      if (!profile.moments.length) mom.appendChild(el('div', 'c-row', '<div class="c-info"><small>吃完饭，同桌的人可能会发朋友圈。对 TA 越好，越容易看到</small></div>'));
+      profile.moments.forEach(function (m) { mom.appendChild(momentEl(m, false)); });
       var ach = $('c-ach'); ach.innerHTML = '';
       var got = 0;
       HP.ACHIEVEMENTS.forEach(function (a) {
@@ -269,11 +280,13 @@
       var t = e.target.closest ? e.target.closest('.tab') : null; if (!t) return;
       var tab = t.getAttribute('data-tab'), tabs = document.querySelectorAll('#codex .tab');
       for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('on', tabs[i] === t);
-      $('c-dex').classList.toggle('hidden', tab !== 'dex'); $('c-ach').classList.toggle('hidden', tab !== 'ach'); $('c-per').classList.toggle('hidden', tab !== 'per');
+      $('c-dex').classList.toggle('hidden', tab !== 'dex'); $('c-ach').classList.toggle('hidden', tab !== 'ach'); $('c-per').classList.toggle('hidden', tab !== 'per'); $('c-mom').classList.toggle('hidden', tab !== 'mom');
     });
     var closers = document.querySelectorAll('[data-close]');
     for (var ci = 0; ci < closers.length; ci++) closers[ci].addEventListener('click', function () {
-      $(this.getAttribute('data-close')).classList.add('hidden'); showHome();
+      var id = this.getAttribute('data-close'); $(id).classList.add('hidden');
+      if (id === 'pair') { $('result').classList.remove('hidden'); return; }
+      showHome();
     });
 
     /* ---------- 教学引导的界面 ---------- */
@@ -346,7 +359,7 @@
     function hideTip() { clearTimeout(tipTimer); $('tip').className = 'tip'; }
     function hideOverlays() {
       hideTip();
-      ['home', 'shop', 'codex', 'result', 'howto', 'intro'].forEach(function (id) { $(id).classList.add('hidden'); });
+      ['home', 'shop', 'codex', 'result', 'howto', 'intro', 'pair', 'flip'].forEach(function (id) { $(id).classList.add('hidden'); });
       $('event').className = 'event'; $('combo').className = 'combo'; $('score').textContent = '0';
     }
     /* 第一次玩先进教学，教完自动开始选好的那一局 */
@@ -372,19 +385,100 @@
       buildTray(D ? D.menu : HP.getLoadout(profile));
       var pot = D ? D.pot : profile.pot, sid = D ? D.scene : opt.scene;
       S = HP.SCENES[sid];
+      // 饭局卡：每日一锅所有人同一张；托盘补上这张卡要用的菜
+      var card = D ? HP.pickCard(sid, null, HP.rng(D.seed + 7)) : HP.pickCard(sid, profile);
+      var tray = (D ? D.menu : HP.getLoadout(profile)).slice();
+      if (card && card.extraTray) card.extraTray.forEach(function (id) {
+        if (tray.indexOf(id) >= 0) return;
+        if (tray.length >= 8) { for (var k = tray.length - 1; k >= 0; k--) if (card.extraTray.indexOf(tray[k]) < 0) { tray.splice(k, 1); break; } }
+        tray.push(id);
+      });
+      buildTray(tray);
       $('hud-scene').textContent = D ? '今日火锅' : S.name;
       $('hud-sub').textContent = (D ? S.name + ' · ' : '') + HP.POTS[pot].name;
       layout();
       game.mode = 'play';
-      game.setup({ scene: sid, seed: D ? D.seed : 0, pot: pot, menu: D ? D.menu : HP.getLoadout(profile) });
-      current.pot = pot; current.sid = sid;
-      game.reset(); game.running = true;
+      game.setup({ scene: sid, seed: D ? D.seed : 0, pot: pot, menu: tray, card: card });
+      current.pot = pot; current.sid = sid; current.card = card ? card.id : null;
+      current.practice = !!(D && profile.daily.day === HP.dayKey() && profile.daily.plays > 0);
+      if (D) $('hud-sub').textContent = HP.issueOf(HP.dayKey()) + (current.practice ? ' · 练习' : '') + ' · ' + S.name;
+      game.reset();
+      // 停电：火候提示看不见
+      if (card && card.id === 'blackout') { current.hints = game.hints; game.hints = false; $('btn-hint').classList.add('off'); $('pro').classList.add('show'); }
+      if (card) showFlip(card, function () { game.running = true; }); else game.running = true;
       if (S.bossFirst) hooks.onEvent('wait', WAIT, true);
       // 第一局开场在锅上标出火力；一人食飘一句提示
       if (!profile.seen['heat_' + pot]) { profile.seen['heat_' + pot] = 1; saveProfile(); game.heatLabels = 3.5; }
       if (!D) tipOnce('scene_' + opt.scene, S.tip);
       if (S.diners) tipOnce('serve', '同桌点的菜涮好后，<b>按住拖到 TA 头像上</b>就是夹给 TA');
     }
+    /* 一条朋友圈 */
+    function momentEl(m, fresh) {
+      var box = el('div', 'mom'), D = HP.DINERS[m.who] || {}, av = el('div', 'mom-av');
+      var ai = images.scene['avatar_' + m.who + '_happy'] || images.scene['avatar_' + m.who + '_wait'];
+      av.style.background = D.color || '#d98a3a';
+      if (ai) { var im0 = el('img'); im0.src = ai.src; av.appendChild(im0); } else av.textContent = (m.name || '?').slice(-1);
+      box.appendChild(av);
+      var b = el('div', 'mom-body');
+      b.appendChild(el('b', null, '')).textContent = m.name || D.name || '';
+      if (m.lv) b.firstChild.appendChild(el('span', 'mom-tag', '羁绊 Lv' + m.lv));
+      b.appendChild(el('p')).textContent = m.t;
+      var mi = m.img && images.scene[m.img];
+      if (mi) { var pic = el('img', 'mom-img'); pic.src = mi.src; b.appendChild(pic); }
+      b.appendChild(el('div', 'mom-meta')).textContent = (fresh ? '刚刚' : HP.dayLabel(m.day)) + (m.scene ? ' · ' + m.scene : '');
+      if ((m.likes && m.likes.length) || m.reply) {
+        var lk = el('div', 'mom-like');
+        lk.textContent = (m.likes && m.likes.length ? '♡ ' + m.likes.join('，') : '') + (m.reply ? (m.likes && m.likes.length ? '\n' : '') + m.reply.name + '：' + m.reply.t : '');
+        lk.style.whiteSpace = 'pre-line'; b.appendChild(lk);
+      }
+      if (m.unlock) b.appendChild(el('div', 'mom-unlock')).textContent = m.unlock;
+      box.appendChild(b);
+      return box;
+    }
+    /* 饭搭子配对 */
+    var lastPersona = null, pairUrl = null;
+    $('btn-pair').addEventListener('click', function () {
+      if (!lastPersona) return;
+      var list = $('p-list'); list.innerHTML = '';
+      HP.PERSONAS.forEach(function (x) {
+        var b = el('button'); b.type = 'button'; b.textContent = x.name; b.setAttribute('data-p', x.id); list.appendChild(b);
+      });
+      $('p-img').classList.add('hidden'); $('p-save').classList.add('hidden'); list.classList.remove('hidden');
+      $('result').classList.add('hidden'); $('pair').classList.remove('hidden');
+    });
+    $('p-list').addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
+      var other = HP.personaById(b.getAttribute('data-p'));
+      pairUrl = HP.renderPairCard(images, lastPersona, other);
+      $('p-img').src = pairUrl; $('p-img').classList.remove('hidden'); $('p-save').classList.remove('hidden');
+      this.classList.add('hidden');
+    });
+    $('p-save').addEventListener('click', function () {
+      if (!pairUrl) return;
+      P.saveImage(pairUrl).then(function () { msg('已保存到相册'); }).catch(function (e) {
+        msg(e && e.message === 'browser' ? '长按图片即可保存' : '保存失败，请检查相册权限');
+      });
+    });
+
+    /* 开局翻卡：2.6 秒后自动开吃，点一下也可以 */
+    var flipTimer = null, flipDone = null;
+    function showFlip(card, done) {
+      flipDone = done;
+      $('flip-name').textContent = card.name; $('flip-rule').textContent = card.rule; $('flip-goal').textContent = card.goal;
+      var art = $('flip-art'), im = images.scene['card_' + card.id];
+      art.style.backgroundColor = card.color;
+      art.style.backgroundImage = im ? 'url(' + im.src + ')' : 'none';
+      art.textContent = im ? '' : card.name;
+      $('flip').classList.remove('hidden');
+      clearTimeout(flipTimer); flipTimer = setTimeout(closeFlip, 2600);
+      audio.unlock(); if (audio.whoosh) audio.whoosh();
+    }
+    function closeFlip() {
+      clearTimeout(flipTimer); $('flip').classList.add('hidden');
+      var d = flipDone; flipDone = null; if (d) d();
+    }
+    $('flip').addEventListener('click', closeFlip);
+
     function startTutorial() {
       audio.unlock(); hideOverlays();
       buildTray(['beef', 'maodu', 'luncheon', 'potato', 'duckblood', 'shrimp']);
@@ -399,22 +493,39 @@
     function finishRound(s) {
       hideTip(); $('event').className = 'event';
       if (!current) current = { scene: game.sceneId, daily: false, pot: game.potId };
-      var ctx = { scene: current.scene, daily: !!current.daily };
       var sceneId = current.sid || current.scene;
+      var ctx = { scene: sceneId, daily: !!current.daily, practice: !!current.practice };
+      var card = current.card ? HP.cardById(current.card) : null;
+      var stars = HP.starsOf(s, card); s.stars = stars.filter(Boolean).length;
+      if (current.hints != null) { game.hints = current.hints; current.hints = null; $('btn-hint').classList.toggle('off', !game.hints); $('pro').classList.toggle('show', !game.hints); }
       var r = HP.settle(profile, s, ctx);
       var p = HP.persona(s);
+      var near = HP.nearPersona(s, p, profile.personas);
+      var meal = HP.afterMeal(profile, s, game.diners || [], HP.SCENES[sceneId].name);
       // 人格图鉴：第一次测出某个人格给金币
       var newP = !profile.personas[p.id];
       profile.personas[p.id] = (profile.personas[p.id] || 0) + 1;
       if (newP) { var pc = { N: 30, R: 60, SR: 120, SSR: 300 }[p.rare]; profile.coins += pc; r.coins += pc; r.lines.unshift(['新人格 · ' + p.name, pc]); }
       saveProfile();
-      var label = (current.daily ? '今日火锅 · ' : '') + HP.SCENES[sceneId].name + ' · ' + HP.POTS[current.pot].name;
-      cardUrl = HP.renderCard(images, s, p, { date: today(), scene: label, isBest: r.isBest, title: HP.titleOf(profile) });
+      var label = (current.daily ? HP.issueOf(HP.dayKey()) + ' · ' : '') + HP.SCENES[sceneId].name;
+      lastPersona = p;
+      cardUrl = HP.renderCard(images, s, p, { date: today(), scene: label, card: card ? card.name : '', stars: s.stars, isBest: r.isBest, title: HP.titleOf(profile) });
+      // 差一点就是另一个人格
+      var nr = $('r-near');
+      if (near) { nr.innerHTML = '差一点：' + near.text + '，你就是「' + near.p.name + '」'; nr.classList.remove('hidden'); }
+      else nr.classList.add('hidden');
+      // 饭后朋友圈
+      var mm = $('r-moments'); mm.innerHTML = '';
+      meal.posts.forEach(function (m) { mm.appendChild(momentEl(m, true)); });
       $('r-img').src = cardUrl;
       $('save-tip').textContent = '';
       // 奖励明细
       var rw = $('rewards'); rw.innerHTML = '';
       rw.appendChild(el('div', 'rw-total', '<i class="coin"></i>+' + r.coins + ' 金币<small>共 ' + profile.coins + '</small>'));
+      rw.appendChild(el('div', 'rw-line', '<span>' + (card ? '饭局卡「' + card.name + '」' : '本局') + '</span><b class="stars">' +
+        stars.map(function (x) { return x ? '★' : '☆'; }).join('') + '</b>'));
+      rw.appendChild(el('div', 'rw-line', '<span style="opacity:.75">' + HP.STAR_TEXT.map(function (t, i) { return (stars[i] ? '✓' : '·') + t; }).join('　') + '</span><b></b>'));
+      if (current.practice) rw.appendChild(el('div', 'rw-line', '<span>今日饭局只有第一局算成绩，这局是练习</span><b></b>'));
       r.lines.forEach(function (l) { rw.appendChild(el('div', 'rw-line', '<span>' + l[0] + '</span><b>+' + l[1] + '</b>')); });
       if (!profile.seen.coins) {
         profile.seen.coins = 1; saveProfile();
@@ -447,7 +558,7 @@
     });
 
     /* ---------- 主循环（低端机自动降特效） ---------- */
-    var last = 0, slow = 0;
+    var last = 0, slow = 0, goalTick = 0;
     function loop(ts) {
       var dt = last ? Math.min(0.05, (ts - last) / 1000) : 0.016; last = ts;
       if (dt > 0.024) slow += dt; else slow = Math.max(0, slow - dt * 0.5);
@@ -459,6 +570,11 @@
         $('time').textContent = fmt(tl);
         $('ring').style.strokeDashoffset = (113 * (1 - tl / HP.ROUND_TIME)).toFixed(1);
         $('timer').classList.toggle('urgent', game.mode === 'play' && tl <= 10);
+      }
+      if (++goalTick % 8 === 0) {
+        var gp = game.mode === 'play' && game.card && (game.running || !$('flip').classList.contains('hidden')) ? HP.cardProgress(game.card, game.stats) : null, ge = $('goal');
+        if (gp) { var txt = (gp.done ? '✓ ' : '★ ') + gp.text; if (ge.textContent !== txt) ge.textContent = txt; ge.className = 'goal show' + (gp.done ? ' done' : ''); }
+        else if (ge.className !== 'goal') ge.className = 'goal';
       }
       requestAnimationFrame(loop);
     }
