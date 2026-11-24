@@ -46,14 +46,14 @@ body {
 }
 .combo.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 
-.tools { position: absolute; z-index: 2; right: 10px; top: 82px; top: calc(82px + env(safe-area-inset-top)); display: flex; flex-direction: column; }
-.tools .tool + .tool { margin-top: 6px; }
+.tools { position: absolute; z-index: 2; right: 10px; top: 82px; top: calc(82px + env(safe-area-inset-top)); display: flex; flex-direction: row; align-items: center; }
+.tools .tool, .tools .pro { margin-left: 6px; }
 .tool {
   font: inherit; font-size: 11px; color: #fff3df; padding: 5px 9px; border-radius: 10px;
   background: rgba(30,8,4,0.55); border: 1px solid rgba(255,200,140,0.22);
 }
 .tool.off { opacity: 0.45; text-decoration: line-through; }
-.pro { margin-top: 6px; font-size: 10px; font-weight: 900; text-align: center; color: #3a0d00; padding: 3px 6px; border-radius: 8px; background: linear-gradient(#ffe48a, #ffab1f); display: none; }
+.pro { font-size: 10px; font-weight: 900; text-align: center; color: #3a0d00; padding: 3px 6px; border-radius: 8px; background: linear-gradient(#ffe48a, #ffab1f); display: none; }
 .pro.show { display: block; }
 
 /* 突发事件横幅 */
@@ -305,3 +305,5 @@ body {
 
 .ver { margin-top: 4px; font-size: 11px; color: rgba(255,240,220,0.4); letter-spacing: 1px; }
 .plate span .pr { font-style: normal; color: #ffd35c; font-size: 10px; margin-left: 2px; }
+.event.speech { background: linear-gradient(160deg, rgba(70,60,120,0.96), rgba(30,24,60,0.96)); }
+.badge.r-N { background: #6b5a4a; color: #fff3e0; } .badge.r-R { background: #2f6fa8; color: #e8f4ff; } .badge.r-SR { background: #6a3aa8; color: #f3e8ff; } .badge.r-SSR { background: #e0a21a; color: #3a2200; }

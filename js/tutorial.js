@@ -69,7 +69,21 @@ var HP = window.HP = window.HP || {};
         } };
       },
       function () {
-        ui.say('学会了！', '正式一局 <b>90 秒</b>：中间火大、四角火小，越到后面同桌越凶。关掉火候提示得分 ×1.2', { button: '开吃' });
+        // 闺蜜点单：锅里放一块快熟的午餐肉，教「拖给 TA」
+        var fr = g.diners.filter(function (x) { return x.id === 'friend'; })[0] || g.diners[0];
+        var p = g.randomSoupPoint(3, 0.04);
+        g.addFood('luncheon', p.nx, p.ny);
+        var f = g.foods[g.foods.length - 1]; f.d = HP.FOODS.luncheon.a + 1;
+        fr.order = { type: 'luncheon', auth: false, t: 0, ttl: 999 };
+        g.dinerSay(fr, '帮我夹块午餐肉嘛~', 3);
+        ui.say('第 5 步 · 照顾同桌', '闺蜜点了午餐肉：<b>按住锅里的午餐肉，拖到她头像上</b>');
+        g.ghost = { mode: 'drag', t: 0, points: function () {
+          var q = g.foods.filter(function (x) { return x.state === 'in' && x.type === 'luncheon'; })[0];
+          return q ? [g.toScreen(q.nx, q.ny), { x: fr.x, y: fr.y }] : [];
+        } };
+      },
+      function () {
+        ui.say('学会了！', '一局 <b>60 秒</b>：同桌点的菜涮好了拖给 TA，自己也别饿着。吃完测你是<b>哪种饭搭子</b>', { button: '开吃' });
       }
     ];
     STEPS[i]();
@@ -101,6 +115,15 @@ var HP = window.HP = window.HP || {};
       this.game.ghost = null;
       this.ui.say('第 4 步 · 护食', name === 'block' ? '<b>挡住了！</b>正式开吃时同桌会更快' : '被抢走了……正式开吃时手要更快');
       this.later(1500, function () { this.go(6); });
+    }
+    else if (s === 6 && name === 'serve') {
+      this.game.ghost = null;
+      this.ui.say('第 5 步 · 照顾同桌', d.match && d.kind === 'perfect' ? '<b>送达！</b>点的菜涮得好，分最高' : '夹过去了！点的菜火候好，分更高');
+      this.later(1500, function () { this.go(7); });
+    }
+    else if (s === 6 && name === 'pick') {
+      this.ui.say('第 5 步 · 照顾同桌', '哈哈你自己吃掉了，再试一次：<b>按住不放，拖到闺蜜头像上</b>');
+      this.later(1600, function () { this.go(6); });
     }
   };
 

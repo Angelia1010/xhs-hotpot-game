@@ -61,8 +61,8 @@ HP.FOODS = {
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
-HP.VERSION = '1.0.4';
-HP.RULES = 3;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
+HP.VERSION = '1.1.0';
+HP.RULES = 4;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
 /* 越贵的菜分越高：¥5 ×0.7 … ¥15 ×1.1 … ¥30 ×1.7 */
 HP.ptsOf = function (type) { return Math.round((0.5 + HP.FOODS[type].price * 0.04) * 100) / 100; };
@@ -78,35 +78,81 @@ HP.NPCS = [
   { id: 'boss',    name: '领导', img: 'hand_boss',    side: 'right', tip: [0.544, 0.999] }
 ];
 
-HP.ROUND_TIME = 90;           // 一局秒数
-HP.NPC_FIRST_DELAY = 12;      // 开局多少秒后 NPC 才开始抢
+HP.ROUND_TIME = 60;           // 一局秒数：短一点，更想「再来一局」
+HP.NPC_FIRST_DELAY = 9;       // 开局多少秒后 NPC 才开始抢
 HP.NPC_WARN = 1.1;            // 抢之前的预警时长
 HP.HINT_OFF_BONUS = 1.2;      // 关掉火候提示（老手模式）的得分加成
 
-/* 节奏三段：开局轻松 → 中段同桌开始抢 → 最后 20 秒手忙脚乱 */
+/* 三幕：开局点菜（轻松）→ 高峰（单子叠单子，有人抢、有人敬酒）→ 收尾（放缓，最后一轮） */
 HP.PHASES = [
-  { until: 30, npc: [9, 13], event: [999, 999] },
-  { until: 70, npc: [6, 10], event: [13, 17] },
-  { until: 999, npc: [5, 8], event: [8, 11] }
+  { until: 15, npc: [10, 14], event: [999, 999], order: [3, 5], maxOrders: 1 },
+  { until: 45, npc: [7, 11], event: [9, 13], order: [3, 5.5], maxOrders: 2 },
+  { until: 999, npc: [7, 10], event: [8, 11], order: [4, 7], maxOrders: 2 }
 ];
-HP.EVENT_FIRST = 24;          // 第一个突发事件出现时间
+HP.EVENT_FIRST = 15;          // 第一个突发事件出现时间
+HP.ORDER_FIRST = 2.5;         // 第一张单出现时间
 
 /* 突发事件 */
 HP.EVENTS = {
   soup:  { text: '服务员：给您加点汤~', sub: '锅里降温了', heat: 0.35, dur: 4.5 },
   fire:  { text: '老王把火开到了最大！', sub: '熟得飞快，盯紧了', heat: 1.75, dur: 5 },
-  toast: { text: '领导举杯：来，走一个！', sub: '快点「干杯」', dur: 2.8, ok: 20, miss: -30 }
+  toast: { text: '领导举杯：来，走一个！', sub: '快点「干杯」', dur: 2.8, ok: 20, miss: -30 },
+  speech: { text: '领导：我简单讲两句……', sub: '讲话时别动筷子', dur: 4.5, ok: 30, miss: -30 }
+};
+
+/* ---------- 同桌的人：坐在锅对面，会点单、会抢菜、会有反应 ----------
+   seat：L 左 / C 中 / R 右；hand：抢菜时用哪只手（对应 HP.NPCS）
+   prefs：爱点的菜；auth：点毛肚时要求七上八下的概率 */
+HP.DINERS = {
+  laowang: { name: '老王', hand: 'laowang', color: '#d98a3a', auth: 0.5,
+    prefs: ['beef', 'maodu', 'luncheon', 'duckintestine', 'kidney', 'beefball', 'goose', 'tenderbeef', 'huanghou', 'potato'],
+    order: ['{d}！快快快', '给我来块{d}', '兄弟，{d}整一个'],
+    happy: ['兄弟够意思！', '香！这口绝了', '还是你懂我'], meh: ['凑合吧', '也还行'],
+    bad: ['这也太生了吧', '这都煮成鞋垫了'], miss: ['不给是吧，我自己抢', '等得我都饿瘦了'], thanks: ['谢了兄弟', '正好想吃'] },
+  friend: { name: '闺蜜', hand: 'friend', color: '#ef7fa0', auth: 0,
+    prefs: ['shrimp', 'tenderbeef', 'lettuce', 'tofu', 'enoki', 'strawberry_maodu', 'lotus', 'napa', 'shiitake', 'gongcai', 'beef'],
+    order: ['帮我涮块{d}嘛~', '想吃{d}！', '{d}{d}{d}'],
+    happy: ['呜呜好好吃，爱你', '你是我的神', '就是这个味'], meh: ['嗯……还行', '下次再嫩一点'],
+    bad: ['呸呸，生的！', '老得咬不动了'], miss: ['哼，不理你了', '算了我自己来'], thanks: ['哇谢谢宝', '你怎么知道我想吃'] },
+  boss: { name: '领导', hand: 'boss', color: '#6d7fa8', auth: 1,
+    prefs: ['maodu', 'huanghou', 'shrimp', 'duckblood', 'tenderbeef', 'goose', 'kidney', 'duckintestine'],
+    order: ['小同志，来块{d}', '这个{d}不错，给我夹一块', '{d}，七上八下会不会？'],
+    happy: ['不错，有前途', '小同志很会来事嘛', '这火候，可以'], meh: ['嗯。', '还行，继续努力'],
+    bad: ['这……能吃吗？', '你平时就这么涮的？'], miss: ['……（领导看了你一眼）', '算了，我不饿'], thanks: ['哦，谢谢', '有心了'] },
+  date: { name: '相亲对象', hand: 'laowang', color: '#7bb39a', auth: 0,
+    prefs: ['lettuce', 'shrimp', 'tofu', 'beef', 'napa', 'lotus', 'tenderbeef', 'wintermelon', 'shiitake'],
+    order: ['那个……能帮我夹块{d}吗', '我想尝尝{d}', '{d}看起来好好吃'],
+    happy: ['你好会照顾人啊', '好吃！你好厉害', '（脸红了）谢谢'], meh: ['嗯嗯，挺好的', '谢谢你'],
+    bad: ['没、没事，我能吃……', '（偷偷吐掉了）'], miss: ['没事没事，我不饿', '（默默低头玩手机）'], thanks: ['啊，谢谢', '你也吃呀'] },
+  auntie: { name: '七大姑', hand: 'friend', color: '#c9573f', auth: 0,
+    prefs: ['tofu', 'potato', 'napa', 'wintermelon', 'duckblood', 'lotus', 'shiitake', 'luncheon', 'lettuce'],
+    order: ['给姑夹块{d}，要软乎的', '{d}给姑来一块', '姑想吃{d}'],
+    happy: ['这孩子真懂事', '比你表哥强多了', '好孩子，多吃点'], meh: ['还行，就是硬了点', '凑合'],
+    bad: ['哎哟这没熟啊', '姑牙不好，咬不动'], miss: ['现在的年轻人哦……', '光顾着自己吃'], thanks: ['哎哟乖', '你也多吃'] }
 };
 
 /* 饭局剧本 */
 HP.SCENES = {
-  bros: { name: '兄弟局', desc: '同桌三个人抢着吃，谁手快谁吃饱', npcs: ['laowang', 'friend', 'boss'], events: ['soup', 'fire', 'toast'] },
-  solo: { name: '一人食', desc: '没人跟你抢，只比火候有多准', npcs: [], events: ['soup', 'fire'], tip: '没人跟你抢，专心看火候' },
-  team: { name: '公司团建', desc: '领导先动筷，挡领导扣分，给领导涮好菜加分', npcs: ['boss', 'laowang'], events: ['toast', 'toast', 'soup', 'fire'],
-          bossFirst: 5, unlockGames: 5,
-          intro: ['开局 5 秒等领导先动筷，抢先吃扣分', '领导的筷子<b>别挡</b>，挡了扣分', '领导夹走你<b>涮好的菜</b>，你加分'] }
+  bros: { name: '朋友局', desc: '老王和闺蜜，一边点菜一边抢', npcs: ['laowang', 'friend'], events: ['soup', 'fire', 'soup'],
+          diners: [['friend', 'L'], ['laowang', 'C']] },
+  team: { name: '公司团建', desc: '领导点的菜要涮好，讲话别动筷，敬酒要接', npcs: ['laowang'], events: ['toast', 'speech', 'toast', 'fire'],
+          diners: [['friend', 'L'], ['laowang', 'C'], ['boss', 'R']], bossFirst: 4, unlockGames: 2,
+          names: { friend: '小美', laowang: '老王' },
+          intro: ['开局先等领导动筷', '领导讲话时<b>别动筷子</b>', '领导举杯要<b>干杯</b>，领导点的菜要涮好'] },
+  date: { name: '相亲局', desc: '对面坐着相亲对象，别光顾着自己吃', npcs: [], events: ['soup', 'fire'],
+          diners: [['date', 'C']], unlockGames: 3, polite: true,
+          intro: ['对面是相亲对象，<b>不会抢你的菜</b>', '多照顾 TA，自己吃太多会被嫌弃'] },
+  family: { name: '家宴', desc: '七大姑、表哥、大舅，一桌人都要照顾到', npcs: ['laowang', 'boss'], events: ['speech', 'soup', 'toast', 'fire'],
+          diners: [['auntie', 'L'], ['laowang', 'C'], ['boss', 'R']], unlockGames: 4,
+          names: { laowang: '表哥', boss: '大舅' },
+          speech: { text: '七大姑：你什么时候结婚啊？', sub: '被催婚了，先别动筷子' },
+          toast: { text: '大舅举杯：来，祝你早日成家！', sub: '快点「干杯」' },
+          intro: ['七大姑催婚时<b>别动筷子</b>', '大舅举杯要<b>干杯</b>', '一桌人都照顾到，才是好孩子'] },
+  solo: { name: '一人食', desc: '没人点菜也没人抢，只比火候有多准', npcs: [], events: ['soup', 'fire'], tip: '没人跟你抢，专心看火候' }
 };
-HP.SCENE_ORDER = ['bros', 'solo', 'team'];
+HP.SCENE_ORDER = ['bros', 'team', 'date', 'family', 'solo'];
+/* 每日一锅：按星期换剧本（0=周日） */
+HP.DAILY_SCENES = ['family', 'team', 'bros', 'date', 'team', 'bros', 'family'];
 
 /* 可复现的随机数：每日一锅用日期做种子，所有人同一局 */
 HP.rng = function (seed) {
@@ -124,6 +170,11 @@ HP.dayKey = function (d) {
 };
 
 HP.ASSETS = {
+  optional: (function () {
+    var out = [];
+    ['laowang', 'friend', 'boss', 'date', 'auntie'].forEach(function (id) { ['wait', 'happy', 'angry'].forEach(function (m) { out.push('avatar_' + id + '_' + m); }); });
+    return out;
+  })(),
   scene: ['pot', 'pot_yuanyang', 'table', 'card_bg', 'chopsticks_closed', 'hand_laowang', 'hand_boss', 'hand_friend'],
   food: HP.FOOD_ORDER
 };

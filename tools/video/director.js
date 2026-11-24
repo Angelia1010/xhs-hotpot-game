@@ -78,7 +78,7 @@
     var from, to, mv = opt.move || 0.35;
     at(t0 - mv, function () { from = { x: finger.x, y: finger.y }; finger.show = true; finger.down = false; });
     span(t0 - mv, t0, function (p) { to = getPt(); var q = lerpP(from, to, p); finger.x = q.x; finger.y = q.y; });
-    at(t0, function () { to = getPt(); finger.x = to.x; finger.y = to.y; finger.down = true; (opt.act || function () { g.pointerDown(to.x, to.y); })(); });
+    at(t0, function () { to = getPt(); finger.x = to.x; finger.y = to.y; finger.down = true; (opt.act || function () { g.pointerDown(to.x, to.y, true); })(); });
     at(t0 + 0.12, function () { finger.down = false; });
   }
 

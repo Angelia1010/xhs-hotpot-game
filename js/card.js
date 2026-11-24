@@ -19,6 +19,10 @@ var HP = window.HP = window.HP || {};
   HP.cardLines = function (s) {
     var L = [], st = maxKey(s.stolenBy);
     if (s.trip) L.push('吃了没熟的见手青，看见了小人');
+    if (s.tripServed) L.push('把没熟的见手青夹给了别人，TA 看见了小人');
+    if (s.speechBreak) L.push('别人讲话时动了筷子，场面一度很尴尬');
+    if (s.orderMiss >= 2) L.push('让同桌干等了 ' + s.orderMiss + ' 次，人家饿着呢');
+    if (s.servedTo && s.servedTo.boss >= 2) L.push('给领导夹了 ' + s.servedTo.boss + ' 块菜');
     if (s.strawberry) L.push('吃了 ' + s.strawberry + ' 个草莓毛肚，川渝人沉默了');
     if (s.enoki >= 2) L.push('吃了 ' + s.enoki + ' 份金针菇：明天见');
     if (s.balanced) L.push('荤素搭配 +' + HP.BALANCE_BONUS);
@@ -33,6 +37,13 @@ var HP = window.HP = window.HP || {};
     return L.slice(0, 3);
   };
 
+  var RARE_COL = { N: ['#c9b9a6', '#3a2a1a'], R: ['#7cc8ff', '#0c2c4a'], SR: ['#c59bff', '#2a1250'], SSR: ['#ffd35c', '#4a2a00'] };
+  function fitFont(ctx, text, weight, size, maxW) {
+    ctx.font = weight + ' ' + size + 'px ' + FONT;
+    while (ctx.measureText(text).width > maxW && size > 40) { size -= 4; ctx.font = weight + ' ' + size + 'px ' + FONT; }
+    return size;
+  }
+
   HP.renderCard = function (images, s, persona, extra) {
     var c = document.createElement('canvas'); c.width = W; c.height = H;
     var ctx = c.getContext('2d'), i;
@@ -41,78 +52,78 @@ var HP = window.HP = window.HP || {};
     var bg = images.scene.card_bg, sc = Math.max(W / bg.width, H / bg.height);
     ctx.drawImage(bg, (W - bg.width * sc) / 2, (H - bg.height * sc) / 2, bg.width * sc, bg.height * sc);
     var g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, 'rgba(25,3,0,0.55)'); g.addColorStop(0.55, 'rgba(25,3,0,0.25)'); g.addColorStop(1, 'rgba(15,2,0,0.75)');
+    g.addColorStop(0, 'rgba(25,3,0,0.62)'); g.addColorStop(0.5, 'rgba(25,3,0,0.35)'); g.addColorStop(1, 'rgba(15,2,0,0.8)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
 
     // 抬头
-    ctx.fillStyle = 'rgba(255,226,168,0.85)';
-    ctx.font = '700 34px ' + FONT;
-    ctx.fillText('火锅局 · 饭局报告', W / 2, 92);
+    ctx.fillStyle = 'rgba(255,226,168,0.9)'; ctx.font = '700 34px ' + FONT;
+    ctx.fillText('火锅局 · 饭搭子鉴定', W / 2, 88);
     ctx.font = '500 26px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.6)';
-    ctx.fillText(extra.date + '　' + extra.scene + (extra.title ? '　·　' + extra.title : ''), W / 2, 140);
+    ctx.fillText(extra.date + '　' + extra.scene, W / 2, 134);
 
     // 人格
-    ctx.font = '500 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.75)';
-    ctx.fillText('本局人格', W / 2, 232);
-    ctx.font = '900 128px ' + FONT;
+    ctx.font = '500 32px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.8)';
+    ctx.fillText('经鉴定，你是', W / 2, 214);
+    var fs = fitFont(ctx, persona.name, '900', 132, W - 120);
     ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(90,10,0,0.9)'; ctx.lineJoin = 'round';
-    ctx.strokeText(persona[0], W / 2, 330);
-    var tg = ctx.createLinearGradient(0, 270, 0, 390);
+    ctx.strokeText(persona.name, W / 2, 310);
+    var tg = ctx.createLinearGradient(0, 310 - fs / 2, 0, 310 + fs / 2);
     tg.addColorStop(0, '#fff1c4'); tg.addColorStop(1, '#ffb13a');
-    ctx.fillStyle = tg; ctx.fillText(persona[0], W / 2, 330);
-    ctx.font = '600 36px ' + FONT; ctx.fillStyle = '#ffe9cf';
-    ctx.fillText(persona[1], W / 2, 422);
+    ctx.fillStyle = tg; ctx.fillText(persona.name, W / 2, 310);
+    fitFont(ctx, persona.line, '600', 38, W - 140); ctx.fillStyle = '#ffe9cf';
+    ctx.fillText(persona.line, W / 2, 400);
+
+    // 稀有度
+    var rc = RARE_COL[persona.rare] || RARE_COL.N, rt = HP.RARE[persona.rare] + '人格 · ' + persona.rare;
+    ctx.font = '800 30px ' + FONT;
+    var pw = ctx.measureText(rt).width + 56;
+    ctx.fillStyle = rc[0]; rr(ctx, W / 2 - pw / 2, 448, pw, 54, 27); ctx.fill();
+    ctx.fillStyle = rc[1]; ctx.fillText(rt, W / 2, 476);
 
     // 分数
-    ctx.font = '900 150px ' + FONT; ctx.fillStyle = '#ffd35c';
-    ctx.fillText(String(s.score), W / 2, 545);
-    ctx.font = '600 32px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.7)';
-    ctx.fillText(extra.isBest ? '分 · 个人新纪录！' : '分', W / 2, 630);
+    ctx.font = '600 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.75)';
+    ctx.fillText('本局得分', W / 2, 560);
+    ctx.font = '900 96px ' + FONT; ctx.fillStyle = '#ffd35c';
+    ctx.fillText(String(s.score) + (extra.isBest ? '' : ''), W / 2, 628);
+    if (extra.isBest) { ctx.font = '700 26px ' + FONT; ctx.fillStyle = '#ffb13a'; ctx.fillText('个人新纪录', W / 2, 690); }
 
     // 数据格
     var cells = [
-      [s.perfect, '完美火候'], [s.bestCombo, '最高连击'], [s.authentic, '正宗七上八下'],
-      [s.stolen, '被同桌抢走'], [s.blocked, '挡住筷子'], [s.toastOk + '/' + (s.toastOk + s.toastMiss), '回敬领导']
+      [s.served, '夹给同桌'], [s.self, '自己吃'], [s.perfect, '完美火候'],
+      [s.orders ? s.ordersDone + '/' + s.orders : '—', '点单完成'], [s.blocked, '挡住筷子'], [s.authentic, '七上八下']
     ];
-    var gx = 90, gy = 690, cw = (W - gx * 2 - 40) / 3, ch = 150;
+    var gx = 90, gy = 724, cw = (W - gx * 2 - 40) / 3, ch = 128;
     for (i = 0; i < cells.length; i++) {
-      var x = gx + (i % 3) * (cw + 20), y = gy + Math.floor(i / 3) * (ch + 20);
-      ctx.fillStyle = 'rgba(30,5,2,0.55)'; rr(ctx, x, y, cw, ch, 24); ctx.fill();
+      var x = gx + (i % 3) * (cw + 20), y = gy + Math.floor(i / 3) * (ch + 18);
+      ctx.fillStyle = 'rgba(30,5,2,0.6)'; rr(ctx, x, y, cw, ch, 22); ctx.fill();
       ctx.strokeStyle = 'rgba(255,200,140,0.22)'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = '#fff6ea'; ctx.font = '900 64px ' + FONT;
-      ctx.fillText(String(cells[i][0]), x + cw / 2, y + 62);
-      ctx.fillStyle = 'rgba(255,240,220,0.7)'; ctx.font = '500 26px ' + FONT;
-      ctx.fillText(cells[i][1], x + cw / 2, y + 118);
+      ctx.fillStyle = '#fff6ea'; ctx.font = '900 54px ' + FONT;
+      ctx.fillText(String(cells[i][0]), x + cw / 2, y + 52);
+      ctx.fillStyle = 'rgba(255,240,220,0.7)'; ctx.font = '500 24px ' + FONT;
+      ctx.fillText(cells[i][1], x + cw / 2, y + 100);
     }
 
-    // 最拿手的菜
-    var best = maxKey(s.perfectBy) || maxKey(s.pickedBy);
-    var by = 1060;
-    ctx.fillStyle = 'rgba(30,5,2,0.6)'; rr(ctx, gx, by, W - gx * 2, 200, 28); ctx.fill();
-    if (best) {
-      var im = images.food[best.key][1], k = 150 / Math.max(im.width, im.height);
-      ctx.drawImage(im, gx + 40 + (150 - im.width * k) / 2, by + 25 + (150 - im.height * k) / 2, im.width * k, im.height * k);
-      ctx.textAlign = 'left';
-      ctx.fillStyle = 'rgba(255,240,220,0.7)'; ctx.font = '500 28px ' + FONT;
-      ctx.fillText(s.perfectBy[best.key] ? '本局最拿手' : '本局吃最多', gx + 230, by + 62);
-      ctx.fillStyle = '#ffe2a8'; ctx.font = '900 54px ' + FONT;
-      ctx.fillText(HP.FOODS[best.key].name + (s.perfectBy[best.key] ? ' · 完美 ×' + s.perfectBy[best.key] : ' ×' + best.n), gx + 230, by + 128);
-    } else {
-      ctx.fillStyle = 'rgba(255,240,220,0.75)'; ctx.font = '600 40px ' + FONT;
-      ctx.fillText('这局一口没吃上', W / 2, by + 100);
-    }
+    // 饭搭子
+    var by = 1032, bh = 190, best = HP.personaById(persona.best), worst = HP.personaById(persona.worst);
+    ctx.fillStyle = 'rgba(30,5,2,0.66)'; rr(ctx, gx, by, W - gx * 2, bh, 26); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,211,92,0.35)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.font = '500 28px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.7)';
+    ctx.fillText('最佳饭搭子', gx + 40, by + 56); ctx.fillText('千万别一起吃', gx + 40, by + 136);
+    ctx.font = '900 44px ' + FONT;
+    ctx.fillStyle = '#7dff9a'; ctx.fillText(best ? best.name : '—', gx + 250, by + 56);
+    ctx.fillStyle = '#ff9b7a'; ctx.fillText(worst ? worst.name : '—', gx + 250, by + 136);
+    ctx.textAlign = 'center';
 
     // 实录
-    ctx.textAlign = 'center';
-    var lines = HP.cardLines(s).slice(0, 2);
-    ctx.font = '600 32px ' + FONT; ctx.fillStyle = '#ffe9cf';
-    lines.forEach(function (l, i) { ctx.fillText(l, W / 2, 1300 + i * 44 + (lines.length === 1 ? 22 : 0), W - 120); });
+    var lines = HP.cardLines(s).slice(0, 1);
+    ctx.font = '600 30px ' + FONT; ctx.fillStyle = '#ffe9cf';
+    lines.forEach(function (l) { ctx.fillText(l, W / 2, 1282, W - 120); });
 
     // 落款
-    ctx.font = '700 28px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.9)';
-    ctx.fillText('来小红书「火锅局」，看看你是哪种火锅人', W / 2, 1400);
+    ctx.font = '700 30px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.95)';
+    ctx.fillText('来小红书搜「火锅局」，测测你是哪种饭搭子', W / 2, 1372);
 
     return c.toDataURL('image/jpeg', 0.85);
   };

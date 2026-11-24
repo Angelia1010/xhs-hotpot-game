@@ -19,9 +19,12 @@
       images.food[n] = [];
       for (var i = 0; i < 3; i++) jobs.push(['food', n, 'img/food/' + n + '_' + i + '.webp', i]);
     });
+    // 可选素材（同桌头像）：有就用，没有就画简笔脸
+    HP.ASSETS.optional.forEach(function (n) { jobs.push(['scene', n, 'img/scene/' + n + '.webp', null, true]); });
     total = jobs.length;
     return Promise.all(jobs.map(function (j) {
-      return loadImage(j[2]).then(function (im) {
+      return loadImage(j[2]).catch(function (e) { if (j[4]) return null; throw e; }).then(function (im) {
+        if (!im) { done++; onProgress(done / total); return; }
         if (j[0] === 'food') images.food[j[1]][j[3]] = im; else images[j[0]][j[1]] = im;
         done++; onProgress(done / total);
       });
@@ -121,10 +124,11 @@
       if (insets.top) app.style.setProperty('--inset-top', insets.top + 'px');
       var hudH = hud.offsetHeight, trayH = $('tray').offsetHeight;
       $('combo').style.top = (hudH + 2) + 'px';
-      $('tools').style.top = (hudH + 8) + 'px';
+      $('tools').style.top = (hudH + 2) + 'px';
+      var toolsH = $('tools').offsetHeight + 4;
       $('event').style.bottom = (trayH - 30) + 'px';
       $('coach').style.bottom = (trayH + 6) + 'px';
-      game.layout(w, h, hudH + 6, h - trayH - 4);
+      game.layout(w, h, hudH + 6 + toolsH, h - trayH - 4);
     }
     window.addEventListener('resize', function () { if (game) layout(); });
 
@@ -138,7 +142,7 @@
       var yest = HP.dayKey(new Date(Date.now() - 864e5));
       var alive = profile.streak.last === day || profile.streak.last === yest;
       $('h-streak').textContent = alive && profile.streak.n ? '连续 ' + profile.streak.n + ' 天' : '今天还没吃';
-      $('d-date').textContent = HP.dayLabel(day);
+      $('d-date').textContent = HP.dayLabel(day) + ' · ' + HP.SCENES[D.scene].name;
       $('d-bonus').style.display = profile.lastPlayDay === day ? 'none' : '';
       var dm = $('d-menu'); dm.innerHTML = '';
       D.menu.forEach(function (id) {
@@ -165,7 +169,7 @@
       if (!HP.sceneUnlocked(profile, id)) { msg('再玩 ' + (HP.SCENES[id].unlockGames - profile.games) + ' 局就能解锁'); return; }
       begin({ scene: id, daily: false });
     });
-    $('btn-daily').addEventListener('click', function () { begin({ scene: 'bros', daily: true }); });
+    $('btn-daily').addEventListener('click', function () { begin({ scene: HP.dailySetup(HP.dayKey()).scene, daily: true }); });
     $('btn-tutorial').addEventListener('click', function () { pending = null; startTutorial(); });
     $('btn-howto').addEventListener('click', function () { $('home').classList.add('hidden'); $('howto').classList.remove('hidden'); });
 
@@ -242,6 +246,14 @@
           '<span class="prog"><i style="width:' + pct + '%"></i></span>'));
         dex.appendChild(row);
       });
+      var per = $('c-per'); per.innerHTML = ''; var pg = 0;
+      HP.PERSONAS.forEach(function (x) {
+        var n = profile.personas[x.id] || 0; if (n) pg++;
+        per.appendChild(el('div', 'c-row ach' + (n ? ' done' : ''),
+          '<div class="c-info"><b>' + (n ? x.name : '？？？') + ' <em class="badge r-' + x.rare + '">' + HP.RARE[x.rare] + '</em></b><small>' +
+          (n ? x.line : '还没测出过') + '</small></div><span class="state">' + (n ? '×' + n : '') + '</span>'));
+      });
+      document.querySelector('[data-tab="per"]').textContent = '饭局人格 ' + pg + '/' + HP.PERSONAS.length;
       var ach = $('c-ach'); ach.innerHTML = '';
       var got = 0;
       HP.ACHIEVEMENTS.forEach(function (a) {
@@ -257,7 +269,7 @@
       var t = e.target.closest ? e.target.closest('.tab') : null; if (!t) return;
       var tab = t.getAttribute('data-tab'), tabs = document.querySelectorAll('#codex .tab');
       for (var i = 0; i < tabs.length; i++) tabs[i].classList.toggle('on', tabs[i] === t);
-      $('c-dex').classList.toggle('hidden', tab !== 'dex'); $('c-ach').classList.toggle('hidden', tab !== 'ach');
+      $('c-dex').classList.toggle('hidden', tab !== 'dex'); $('c-ach').classList.toggle('hidden', tab !== 'ach'); $('c-per').classList.toggle('hidden', tab !== 'per');
     });
     var closers = document.querySelectorAll('[data-close]');
     for (var ci = 0; ci < closers.length; ci++) closers[ci].addEventListener('click', function () {
@@ -307,11 +319,19 @@
     function endDrag(e) { if (game && e.pointerId === dragId) { dragId = null; game.dragEnd(); } }
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('pointercancel', endDrag);
+    var potId = null;   // 在锅里按住一块菜的那根手指：拖到同桌头像上就是夹给 TA
     canvas.addEventListener('pointerdown', function (e) {
       if (!game || e.pointerId === dragId || game.drag) return;
       audio.unlock();
       var p = pos(e); game.pointerDown(p.x, p.y);
+      if (game.press && potId === null) potId = e.pointerId;
     });
+    window.addEventListener('pointermove', function (e) {
+      if (game && e.pointerId === potId) { var p = pos(e); game.pointerMove(p.x, p.y); }
+    });
+    function endPot(e) { if (game && e.pointerId === potId) { potId = null; game.pointerUp(); } }
+    window.addEventListener('pointerup', endPot);
+    window.addEventListener('pointercancel', endPot);
 
     $('btn-hint').addEventListener('click', function () {
       game.hints = !game.hints; this.classList.toggle('off', !game.hints);
@@ -350,18 +370,20 @@
       current = opt;
       var S = HP.SCENES[opt.scene], D = opt.daily ? HP.dailySetup(HP.dayKey()) : null;
       buildTray(D ? D.menu : HP.getLoadout(profile));
-      var potId = D ? D.pot : profile.pot;
+      var pot = D ? D.pot : profile.pot, sid = D ? D.scene : opt.scene;
+      S = HP.SCENES[sid];
       $('hud-scene').textContent = D ? '今日火锅' : S.name;
-      $('hud-sub').textContent = (D ? HP.dayLabel(HP.dayKey()) + ' · ' : '') + HP.POTS[potId].name;
+      $('hud-sub').textContent = (D ? S.name + ' · ' : '') + HP.POTS[pot].name;
       layout();
       game.mode = 'play';
-      game.setup({ scene: D ? D.scene : opt.scene, seed: D ? D.seed : 0, pot: potId });
-      current.pot = potId;
+      game.setup({ scene: sid, seed: D ? D.seed : 0, pot: pot, menu: D ? D.menu : HP.getLoadout(profile) });
+      current.pot = pot; current.sid = sid;
       game.reset(); game.running = true;
-      if (S.bossFirst && !D) hooks.onEvent('wait', WAIT, true);
+      if (S.bossFirst) hooks.onEvent('wait', WAIT, true);
       // 第一局开场在锅上标出火力；一人食飘一句提示
-      if (!profile.seen['heat_' + potId]) { profile.seen['heat_' + potId] = 1; saveProfile(); game.heatLabels = 3.5; }
+      if (!profile.seen['heat_' + pot]) { profile.seen['heat_' + pot] = 1; saveProfile(); game.heatLabels = 3.5; }
       if (!D) tipOnce('scene_' + opt.scene, S.tip);
+      if (S.diners) tipOnce('serve', '同桌点的菜涮好后，<b>按住拖到 TA 头像上</b>就是夹给 TA');
     }
     function startTutorial() {
       audio.unlock(); hideOverlays();
@@ -378,11 +400,15 @@
       hideTip(); $('event').className = 'event';
       if (!current) current = { scene: game.sceneId, daily: false, pot: game.potId };
       var ctx = { scene: current.scene, daily: !!current.daily };
-      var sceneId = current.daily ? 'bros' : current.scene;
+      var sceneId = current.sid || current.scene;
       var r = HP.settle(profile, s, ctx);
+      var p = HP.persona(s);
+      // 人格图鉴：第一次测出某个人格给金币
+      var newP = !profile.personas[p.id];
+      profile.personas[p.id] = (profile.personas[p.id] || 0) + 1;
+      if (newP) { var pc = { N: 30, R: 60, SR: 120, SSR: 300 }[p.rare]; profile.coins += pc; r.coins += pc; r.lines.unshift(['新人格 · ' + p.name, pc]); }
       saveProfile();
-      var p = HP.persona(s, sceneId);
-      var label = (current.daily ? '今日火锅 · ' + HP.dayLabel(HP.dayKey()) : HP.SCENES[current.scene].name) + ' · ' + HP.POTS[current.pot].name;
+      var label = (current.daily ? '今日火锅 · ' : '') + HP.SCENES[sceneId].name + ' · ' + HP.POTS[current.pot].name;
       cardUrl = HP.renderCard(images, s, p, { date: today(), scene: label, isBest: r.isBest, title: HP.titleOf(profile) });
       $('r-img').src = cardUrl;
       $('save-tip').textContent = '';
@@ -394,6 +420,8 @@
         profile.seen.coins = 1; saveProfile();
         rw.appendChild(el('div', 'rw-hint', '金币可以在首页「菜单 · 解锁」买新菜'));
       }
+      var got = HP.PERSONAS.filter(function (x) { return profile.personas[x.id]; }).length;
+      rw.appendChild(el('div', 'rw-line', '<span>饭局人格图鉴</span><b>' + got + ' / ' + HP.PERSONAS.length + '</b>'));
       if (r.titleUp) rw.appendChild(el('div', 'rw-up', '称号升级：' + r.titleUp));
       if (r.streakUp) rw.appendChild(el('div', 'rw-line', '<span>连续打卡</span><b>' + profile.streak.n + ' 天</b>'));
       $('btn-share').classList.toggle('hidden', !P.canShare);

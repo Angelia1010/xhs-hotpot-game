@@ -52,7 +52,7 @@ var HP = window.HP = window.HP || {};
   /* ---------- 存档 ---------- */
   HP.newProfile = function () {
     return {
-      v: 2, rules: HP.RULES, tutorialDone: false, best: 0, bestBy: {}, games: 0, coins: 0,
+      v: 2, rules: HP.RULES, personas: {}, tutorialDone: false, best: 0, bestBy: {}, games: 0, coins: 0,
       unlocked: HP.FOOD_ORDER.filter(function (id) { return !HP.FOODS[id].unlock; }),
       loadout: null,
       totals: { perfect: 0, authentic: 0, blocked: 0, stolen: 0, served: 0, toastOk: 0, eaten: 0, raw: 0 },
@@ -126,7 +126,8 @@ var HP = window.HP = window.HP || {};
     var meat = shuffle(HP.FOOD_ORDER.filter(function (id) { return !HP.FOODS[id].veg; }));
     var veg = shuffle(HP.FOOD_ORDER.filter(function (id) { return HP.FOODS[id].veg; }));
     var menu = meat.slice(0, 5).concat(veg.slice(0, 3)).sort(function (a, b) { return HP.FOOD_ORDER.indexOf(a) - HP.FOOD_ORDER.indexOf(b); });
-    return { seed: seed, menu: menu, scene: 'bros', pot: r() < 0.34 ? 'yuanyang' : 'jiugong' };
+    var wd = new Date(Math.floor(day / 10000), Math.floor(day / 100) % 100 - 1, day % 100).getDay();
+    return { seed: seed, menu: menu, scene: HP.DAILY_SCENES[wd], pot: r() < 0.34 ? 'yuanyang' : 'jiugong' };
   };
   HP.dayLabel = function (day) { return Math.floor(day / 100) % 100 + '月' + day % 100 + '日'; };
 
@@ -182,68 +183,71 @@ var HP = window.HP = window.HP || {};
     return out;
   };
 
-  /* ---------- 人格：技术、偏好、剧本都会影响，尽量让每个人拿到的不一样 ---------- */
-  var FAV = {
-    maodu: ['毛肚原教旨主义者', '无毛肚，不火锅'],
-    beef: ['肥牛收割机', '一盘肥牛，三秒清空'],
-    duckintestine: ['鸭肠爽脆派', '只认嘎吱嘎吱的那一口'],
-    shrimp: ['虾滑捕手', '盯着锅底，等它浮上来'],
-    duckblood: ['鸭血守护者', '在角落里慢慢炖，谁也别动'],
-    luncheon: ['午餐肉信徒', '火锅里最快乐的那一块'],
-    potato: ['土豆片爱好者', '吃火锅也要吃主食'],
-    huanghou: ['黄喉卷卷党', '看它卷成圈才安心'],
-    tenderbeef: ['嫩牛肉信徒', '滑嫩才是正义'],
-    goose: ['鹅肠宽面党', '鸭肠太细，只认鹅肠'],
-    kidney: ['腰片狙击手', '三秒卷边，一口脆嫩'],
-    beefball: ['牛丸弹弹弹', '盯着锅底等它浮上来'],
-    tofu: ['冻豆腐吸汁王', '吃的不是豆腐，是汤'],
-    lotus: ['藕断丝连派', '脆就完事了'],
-    lettuce: ['生菜闪电侠', '一秒下锅，一秒出锅'],
-    gongcai: ['贡菜脆脆党', '只认咔嚓那一声'],
-    napa: ['娃娃菜慢炖派', '吸饱了汤才好吃'],
-    shiitake: ['香菇收集者', '每一朵都要十字刀'],
-    wintermelon: ['冬瓜耐心王', '煮到透明，才配下嘴']
+  /* ---------- 饭局人格：看你这局怎么吃、怎么照顾人，不只看分数 ----------
+     rare：N 普通 / R 稀有 / SR 罕见 / SSR 传说；best / worst：最佳饭搭子、千万别一起吃 */
+  HP.PERSONAS = [
+    { id: 'trip', name: '见过小人的人', line: '见手青没熟就吃，现在看什么都在跳舞', rare: 'SR', best: 'yangsheng', worst: 'shengchi',
+      test: function (s) { return s.trip >= 1; } },
+    { id: 'tianxuan', name: '天选饭搭子', line: '技术好、会照顾人、还不抢菜，谁不想跟你吃火锅', rare: 'SSR', best: 'tianxuan', worst: 'ganfan',
+      test: function (s, x) { return s.orders >= 4 && x.serveRatio >= 0.3 && x.serveRatio <= 0.75 && x.perfRate >= 0.7 && s.orderMiss <= 1 && !s.toastMiss && !s.speechBreak && s.score >= 2200; } },
+    { id: 'danshen', name: '单身原因找到了', line: '相亲对象饿着肚子，你吃得满嘴流油', rare: 'R', best: 'ganfan', worst: 'laomazi',
+      test: function (s) { return s.sceneId === 'date' && s.self >= 6 && (s.servedTo.date || 0) <= 1; } },
+    { id: 'xiangqin', name: '相亲成功体质', line: '一顿火锅的功夫，对面已经在偷偷看你了', rare: 'R', best: 'laomazi', worst: 'danshen',
+      test: function (s) { return s.sceneId === 'date' && (s.servedTo.date || 0) >= 4 && s.servedBad <= 1; } },
+    { id: 'bieren', name: '别人家的孩子', line: '七大姑逢人就夸你，表哥压力很大', rare: 'R', best: 'qifen', worst: 'moyu',
+      test: function (s) { return s.sceneId === 'family' && (s.servedTo.auntie || 0) >= 3 && !s.speechBreak; } },
+    { id: 'duanshui', name: '端水大师', line: '一碗水端得比锅底还平', rare: 'SR', best: 'qifen', worst: 'hushi',
+      test: function (s, x) { return x.diners >= 2 && x.minFed >= 3 && x.maxFed - x.minFed <= 1; } },
+    { id: 'tianpin', name: '甜品胃', line: '火锅里涮草莓，你是认真的吗', rare: 'SR', best: 'trip', worst: 'qishang',
+      test: function (s) { return s.strawberry >= 2; } },
+    { id: 'qishang', name: '七上八下传承人', line: '四川老师傅看了都点头', rare: 'SR', best: 'huohou', worst: 'tianpin',
+      test: function (s) { return s.authentic >= 3; } },
+    { id: 'huohou', name: '火候强迫症', line: '差一秒都不行，你对毛肚比对对象还认真', rare: 'SR', best: 'qishang', worst: 'xiedian',
+      test: function (s, x) { return x.total >= 8 && x.perfRate >= 0.9; } },
+    { id: 'laomazi', name: '老妈子', line: '自己没吃两口，全桌都被你喂饱了', rare: 'R', best: 'ganfan', worst: 'hushi',
+      test: function (s, x) { return s.served >= 5 && x.serveRatio >= 0.6; } },
+    { id: 'mianao', name: '领导的小棉袄', line: '领导的杯子就没空过，升职加薪指日可待', rare: 'R', best: 'qifen', worst: 'shekong',
+      test: function (s) { return (s.servedTo.boss || 0) >= 3 && s.toastOk >= 1 && !s.toastMiss; } },
+    { id: 'shekong', name: '社恐涮菜机', line: '不说话，只涮菜，用毛肚表达爱', rare: 'R', best: 'qifen', worst: 'mianao',
+      test: function (s) { return s.toastMiss >= 1 && !s.toastOk && s.served >= 3; } },
+    { id: 'qifen', name: '气氛组组长', line: '饭桌上最会来事的就是你', rare: 'R', best: 'shekong', worst: 'moyu',
+      test: function (s) { return s.toastOk + s.speechOk >= 2 && !s.toastMiss && !s.speechBreak && s.ordersDone >= 3; } },
+    { id: 'hushi', name: '护食战神', line: '在你面前，没人夹得走一片肉', rare: 'R', best: 'beiqiang', worst: 'laomazi',
+      test: function (s) { return s.blocked >= 4; } },
+    { id: 'beiqiang', name: '被抢专业户', line: '你涮的每一片肉，都进了别人的嘴', rare: 'N', best: 'hushi', worst: 'ganfan',
+      test: function (s) { return s.stolen >= 3; } },
+    { id: 'shengchi', name: '生吃挑战者', line: '不熟也敢吃，胃是铁打的', rare: 'N', best: 'xiedian', worst: 'huohou',
+      test: function (s) { return s.raw + s.rawServed >= 3; } },
+    { id: 'xiedian', name: '鞋垫制造机', line: '你的耐心，让每片肉都变成了鞋垫', rare: 'N', best: 'shengchi', worst: 'huohou',
+      test: function (s) { return s.over >= 4; } },
+    { id: 'jinzhengu', name: '金针菇缠斗者', line: '跟金针菇纠缠了一整局，赢了吗', rare: 'R', best: 'yangsheng', worst: 'roushi',
+      test: function (s) { return s.enoki >= 3; } },
+    { id: 'ganfan', name: '干饭王', line: '火锅局？不，是我的个人自助餐', rare: 'N', best: 'laomazi', worst: 'tianxuan',
+      test: function (s, x) { return s.self >= 8 && x.serveRatio <= 0.15; } },
+    { id: 'guicai', name: '贵菜鉴赏家', line: '只挑贵的，这顿 AA 谁也别想占你便宜', rare: 'R', best: 'roushi', worst: 'yangsheng',
+      test: function (s) { return s.self >= 5 && s.expSelf / s.self >= 0.5; } },
+    { id: 'roushi', name: '肉食动物', line: '青菜？那是锅底的装饰', rare: 'N', best: 'yangsheng', worst: 'yangsheng',
+      test: function (s) { return s.self >= 6 && s.meat / s.self >= 0.85; } },
+    { id: 'yangsheng', name: '养生派', line: '来火锅店吃了一顿沙拉', rare: 'N', best: 'roushi', worst: 'guicai',
+      test: function (s) { return s.self >= 5 && s.veg / s.self >= 0.6; } },
+    { id: 'moyu', name: '摸鱼食客', line: '来了，坐了，吃了两口，走了', rare: 'N', best: 'laomazi', worst: 'qifen',
+      test: function (s, x) { return x.total <= 5; } },
+    { id: 'suiyuan', name: '随缘干饭人', line: '不争不抢，吃得开心最重要', rare: 'N', best: 'hushi', worst: 'huohou',
+      test: function () { return true; } }
+  ];
+  HP.RARE = { N: '普通', R: '稀有', SR: '罕见', SSR: '传说' };
+  HP.personaById = function (id) { for (var i = 0; i < HP.PERSONAS.length; i++) if (HP.PERSONAS[i].id === id) return HP.PERSONAS[i]; return null; };
+  HP.personaMetrics = function (s) {
+    var total = s.self + s.served, fed = [], k;
+    for (k in s.servedTo) if (s.servedTo.hasOwnProperty(k)) fed.push(s.servedTo[k]);
+    var dn = (HP.SCENES[s.sceneId] && HP.SCENES[s.sceneId].diners) || [];
+    while (fed.length < dn.length) fed.push(0);
+    return { total: total, serveRatio: total ? s.served / total : 0, perfRate: total ? s.perfect / total : 0,
+             diners: dn.length, minFed: fed.length ? Math.min.apply(null, fed) : 0, maxFed: fed.length ? Math.max.apply(null, fed) : 0 };
   };
-  HP.persona = function (s, sceneId) {
-    var eaten = s.eaten, ratio = eaten ? s.perfect / eaten : 0;
-    var uses = s.cellUse.reduce(function (a, b) { return a + b; }, 0);
-    var POT = HP.POTS[s.potId] || HP.POTS.jiugong;
-    var sum = function (idx) { return idx.reduce(function (a, i) { return a + (s.cellUse[i] || 0); }, 0); };
-    var center = uses ? sum(POT.center) / uses : 0, corners = uses ? sum(POT.corners) / uses : 0;
-    var fav = null, favN = 0;
-    for (var k in s.pickedBy) if (s.pickedBy.hasOwnProperty(k) && s.pickedBy[k] > favN) { fav = k; favN = s.pickedBy[k]; }
-
-    if (eaten === 0) return ['光看不吃', '锅都快烧干了，你一口没动'];
-    if (s.trip >= 1) return ['见过小人的人', '云南朋友建议你先去医院看看'];
-    if (s.strawberry >= 3) return ['黑暗料理王', '川渝人看了沉默，草莓看了流泪'];
-    if (s.enoki >= 4) return ['金针菇：明天见', 'See you tomorrow'];
-    if (sceneId === 'team') {
-      if (s.rude >= 2) return ['没眼力见', '领导筷子还没动，你已经吃上了'];
-      if (s.blockedBoss >= 2) return ['职场勇士', '连领导的筷子都敢挡'];
-      if (s.servedBad >= 2) return ['领导的眼中钉', '给领导夹的不是生的就是老的'];
-      if (s.served >= 4) return ['捧场王', '给领导涮的每一块都恰到好处'];
-      if (s.toastOk >= 3 && s.toastMiss === 0) return ['饭局情商王', '涮得好，酒也敬得好'];
-    }
-    if (s.authentic >= 3) return ['七上八下大师', '重庆人看了都要给你递一瓶冰啤酒'];
-    if (s.bestCombo >= 8) return ['连击狂魔', '一出手就停不下来'];
-    if (ratio >= 0.75 && s.perfect >= 8) return ['火候判官', '每一块都在最好的那一秒出锅'];
-    if (sceneId === 'solo') return ratio >= 0.55 ? ['一人食艺术家', '一个人吃火锅，也要吃得精致'] : ['孤独的美食家', '没人抢，火候还是差了一点'];
-    if (s.stolen >= 4) return ['被抢专业户', '老王说今天这顿吃得很满意'];
-    if (s.blocked >= 4) return ['护食狂魔', '谁也别想从你锅里夹走一片肉'];
-    if (s.raw >= 3) return ['生吃勇士', '你的肠胃正在给你打电话'];
-    if (s.over >= 4) return ['炖菜大师', '你是来吃火锅的还是来熬汤的'];
-    if (sceneId === 'bros' && s.toastMiss >= 2) return ['领导的眼中钉', '吃得挺香，就是忘了看领导的杯子'];
-    if (s.potId === 'yuanyang') {
-      if (uses >= 6 && corners >= 0.7) return ['清汤养生派', '不吃辣也能把火锅吃明白'];
-      if (uses >= 6 && center >= 0.8) return ['红汤死忠粉', '鸳鸯锅的清汤，你一筷子没碰'];
-    } else {
-      if (uses >= 6 && center >= 0.6) return ['中间格霸主', '火最旺的地方，永远是你的'];
-      if (uses >= 6 && corners >= 0.5) return ['慢炖哲学家', '四个角落才是火锅的灵魂'];
-    }
-    if (eaten >= 8 && s.veg > s.meat) return ['养生火锅派', '吃火锅也要多吃蔬菜'];
-    if (fav && favN >= 4 && favN / eaten >= 0.4 && FAV[fav]) return FAV[fav];
-    if (s.stolen === 0 && s.blocked === 0 && eaten >= 6) return ['佛系食客', '没人抢你，你也不抢别人'];
-    if (ratio >= 0.4) return ['火锅老手', '有点东西，再练练就能出师'];
-    return ['火锅新秀', '下次盯紧一点，别光顾着聊天'];
+  HP.persona = function (s) {
+    var x = HP.personaMetrics(s);
+    for (var i = 0; i < HP.PERSONAS.length; i++) if (HP.PERSONAS[i].test(s, x)) return HP.PERSONAS[i];
+    return HP.PERSONAS[HP.PERSONAS.length - 1];
   };
 })();
