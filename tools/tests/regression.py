@@ -374,9 +374,21 @@ async def main():
         await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1500)
         ok('客户端 9.50：首页入口提示升级到 9.51，不提交成绩、结算页不显示名次', old and await js(pg, "!__calls.some(c=>c[0]==='submit') && document.getElementById('r-rank').classList.contains('hidden')"))
         await pg.close()
+        # 版本够、但小红书没给排行榜接口（上传时没选「排行榜」能力）：卡片照样在，写「暂未开放」，点版本号能看原因
+        pg, errs = await page(b, init=XHS_MOCK + "delete window.xhs.miniTool.submitScore; delete window.xhs.miniTool.getRankList; delete window.xhs.miniTool.getMyRank;")
+        nf = json.loads(await js(pg, "JSON.stringify({st:HP.platform.rankState, show:!document.getElementById('h-rank').classList.contains('hidden'), txt:document.getElementById('h-rank-text').textContent})"))
+        await js(pg, "document.getElementById('h-rank').click()"); await pg.wait_for_timeout(400)
+        dg = await js(pg, "document.querySelector('#rk-body .diag').textContent")
+        await js(pg, "document.querySelector('#rank [data-close]').click(); document.getElementById('h-ver').click()"); await pg.wait_for_timeout(200)
+        vm = await js(pg, "document.getElementById('msg').textContent")
+        ok('没给排行榜接口：首页卡片写「暂未开放」，榜单页和点版本号都能看到原因', nf['st'] == 'nofn' and nf['show'] and '暂未开放' in nf['txt'] and '没给这个小工具排行榜接口' in dg and '小红书 9.56.2' in vm, (nf, dg, vm))
+        await pg.close()
+
         pg, errs = await page(b, init=XHS_MOCK + "window.__deny=1;")
         await pg.wait_for_timeout(500)
         ok('没勾「用户头像昵称授权」（1005）：首页入口自动藏起来', await js(pg, "HP.platform.rankOk===false && document.getElementById('h-rank').classList.contains('hidden')"))
+        await js(pg, "document.getElementById('h-ver').click()"); await pg.wait_for_timeout(200)
+        ok('1005 时点版本号能看到错误码', '1005' in await js(pg, "document.getElementById('msg').textContent"))
         await pg.close()
 
         pg, errs = await page(b, init=XHS_NO_STORAGE)

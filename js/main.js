@@ -60,9 +60,9 @@
       var t = $('tip'); t.innerHTML = text; t.className = 'tip show';
       clearTimeout(tipTimer); tipTimer = setTimeout(function () { t.className = 'tip'; }, 3200);
     }
-    function msg(text) {
+    function msg(text, ms) {
       var m = $('msg'); m.textContent = text; m.className = 'msg show';
-      clearTimeout(msgTimer); msgTimer = setTimeout(function () { m.className = 'msg'; }, 1800);
+      clearTimeout(msgTimer); msgTimer = setTimeout(function () { m.className = 'msg'; }, ms || 1800);
     }
 
     var VIB = { perfect: 'medium', block: 'heavy', dip: 'light', event: 'heavy', raw: 'light', ok: 'light', over: 'light' };
@@ -260,6 +260,7 @@
     var verTaps = 0, verT = 0;
     $('h-ver').addEventListener('click', function () {
       var now = Date.now(); verTaps = now - verT < 1500 ? verTaps + 1 : 1; verT = now;
+      if (verTaps === 1) msg(P.rankDiag(), 4000);   // 点一下版本号：看排行榜为什么用不了（测试用）
       if (verTaps >= 7) { verTaps = 0; profile.day = HP.DAY_MAX; profile.tutorialDone = true; for (var i = 1; i <= HP.DAY_MAX; i++) { profile.seen['lesson_' + i] = 1; profile.seen['dayintro_' + i] = 1; } saveProfile(); msg('测试模式：火锅日记全开'); showHome(); }
     });
 
@@ -1069,8 +1070,10 @@
         // 当前环境用不了：说清楚去哪儿能看，不画假榜单
         pc.classList.add('hidden');
         body.innerHTML = '';
-        body.appendChild(el('div', 'rk-off', '<b>排行榜要在小红书 App 里看</b>' + (HP.RANK_NOTE[P.rankState] || '这个版本的小红书还没开通排行榜') +
-          '<small>剧本局（火锅日记的局也算）、今日火锅、翻台挑战、饭局夜都会上榜</small>'));
+        var off = el('div', 'rk-off', P.rankState === 'nofn' ? '<b>排行榜暂未开放</b>敬请期待' : '<b>排行榜要在小红书 App 里看</b>' + (HP.RANK_NOTE[P.rankState] || '这个版本的小红书还没开通排行榜'));
+        off.appendChild(el('small', null, '剧本局（火锅日记的局也算）、今日火锅、翻台挑战、饭局夜都会上榜'));
+        off.appendChild(el('small', 'diag')).textContent = P.rankDiag();
+        body.appendChild(off);
         return;
       }
       body.innerHTML = '<div class="rk-note">加载中…</div>';

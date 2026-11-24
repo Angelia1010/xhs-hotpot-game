@@ -78,7 +78,7 @@ HP.slotOf = function (type) { return HP.FOODS[type].special === 'bulky' ? 2 : 1;
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
-HP.VERSION = '1.3.4';
+HP.VERSION = '1.3.5';
 HP.RULES = 5;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
 /* 越贵的菜分越高：¥5 ×0.7 … ¥15 ×1.1 … ¥30 ×1.7 */
@@ -241,7 +241,8 @@ HP.PERIOD = { day: '今日', week: '本周', month: '本月', all: '总榜' };
 HP.RANK_NOTE = {
   browser: '在小红书 App 里打开就能看榜、上榜',
   unknown: '用手机小红书扫码打开就能看榜、上榜',
-  old: '小红书升级到 9.51 以上就能看榜、上榜'
+  old: '小红书升级到 9.51 以上就能看榜、上榜',
+  nofn: '排行榜暂未开放，敬请期待'
 };
 HP.RESET = { day: '每天 0 点（北京时间）换榜', week: '每周一 0 点（北京时间）换榜', month: '每月 1 日换榜', all: '记历史最好成绩' };
 /* 每日一锅：按星期换剧本（0=周日） */

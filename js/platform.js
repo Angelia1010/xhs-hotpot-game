@@ -122,10 +122,21 @@ var HP = window.HP = window.HP || {};
     P.build = b;
     P.rankState = !inXhs ? 'browser' : b === null ? 'unknown' : !P.atLeast(9510) ? 'old' : !RANK_FNS.every(has) ? 'nofn' : 'ok';
     P.rankOk = P.rankState === 'ok';
+    P.rankMissing = inXhs ? RANK_FNS.filter(function (n) { return !has(n); }) : [];
     return b;
   });
   function code(e) { return e && (e.errCode != null ? e.errCode : e.code); }
-  function denied(e) { var c = code(e); if (c === 1005 || c === 1006 || c === 10003) { P.rankOk = false; P.rankState = 'denied'; } return Promise.reject(e); }
+  P.rankCode = null;   // 最近一次排行榜失败的错误码，给首页版本号上的诊断用
+  function denied(e) { var c = code(e); P.rankCode = c != null ? c : 'net'; if (c === 1005 || c === 1006 || c === 10003) { P.rankOk = false; P.rankState = 'denied'; } return Promise.reject(e); }
+  /* 排行榜为什么用不了：一句话，测试时点首页版本号就能看到 */
+  P.rankDiag = function () {
+    var S = { ok: '可用', browser: '浏览器预览，没有小红书接口', unknown: '读不到小红书版本号', old: '小红书版本低于 9.51', nofn: '小红书没给这个小工具排行榜接口', denied: '平台拒绝（未授权）' };
+    var v = P.build ? String(Math.floor(P.build / 1000)) : '';
+    return '排行榜：' + (S[P.rankState] || P.rankState) +
+      (v ? ' · 小红书 ' + v.charAt(0) + '.' + v.slice(1, 3) + '.' + v.slice(3) : '') +
+      (P.rankMissing && P.rankMissing.length && P.rankMissing.length < 3 ? ' · 缺 ' + P.rankMissing.join('/') : '') +
+      (P.rankCode != null ? ' · 错误码 ' + P.rankCode : '');
+  };
   var cache = {};
   function cached(key) { var c = cache[key]; return c && Date.now() - c.t < 45000 ? c.v : undefined; }
   P.submitScore = function (board, score) {

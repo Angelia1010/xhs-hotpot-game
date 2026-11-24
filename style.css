@@ -177,7 +177,7 @@ body {
 /* ---------- 提示条 ---------- */
 .msg {
   position: absolute; z-index: 9; left: 50%; top: 45%; transform: translate(-50%, -50%) scale(0.9);
-  padding: 10px 18px; border-radius: 14px; font-size: 14px; font-weight: 700;
+  padding: 10px 18px; border-radius: 14px; font-size: 14px; font-weight: 700; max-width: 86%; text-align: center;
   background: rgba(0,0,0,0.78); opacity: 0; pointer-events: none; transition: all 0.2s;
 }
 .msg.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
@@ -519,3 +519,4 @@ body {
 .rk-off { margin: 18px 0; padding: 18px 14px; border-radius: 14px; text-align: center; font-size: 13px; line-height: 1.6; color: #ffe9c9; background: rgba(30,8,4,0.6); }
 .rk-off b { display: block; margin-bottom: 4px; font-size: 16px; color: #ffd35c; }
 .rk-off small { display: block; margin-top: 6px; font-size: 11px; opacity: 0.7; }
+.rk-off small.diag { margin-top: 10px; font-size: 10px; opacity: 0.55; }
