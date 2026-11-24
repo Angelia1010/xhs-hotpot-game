@@ -12,7 +12,7 @@
   <canvas id="cv"></canvas>
 
   <header id="hud" class="hud">
-    <div class="pill scene"><b id="hud-scene">朋友局</b><small id="hud-sub">九宫格 · 川渝</small></div>
+    <button id="btn-pause" class="pill scene" type="button" aria-label="暂停"><i class="pz"></i><span><b id="hud-scene">朋友局</b><small id="hud-sub">九宫格 · 川渝</small></span></button>
     <div id="timer" class="timer">
       <svg viewBox="0 0 40 40"><circle class="track" cx="20" cy="20" r="18"/><circle id="ring" class="ring" cx="20" cy="20" r="18"/></svg>
       <span id="time">1:00</span>
@@ -55,6 +55,21 @@
       <h2 id="i-title"></h2>
       <ul id="i-list" class="i-list"></ul>
       <button id="btn-intro" class="cta small" type="button">明白了</button>
+      <button id="btn-intro-back" class="link" type="button">返回首页</button>
+    </div>
+  </section>
+
+  <!-- 暂停：局中点左上角，或按手机 / 小红书的返回键 -->
+  <section id="pause" class="overlay hidden">
+    <div class="card pause-card">
+      <small id="pz-sub">暂停中</small>
+      <h2>先放下筷子</h2>
+      <p id="pz-text" class="sub"></p>
+      <button id="btn-resume" class="cta small" type="button">继续吃</button>
+      <div class="r-row">
+        <button id="btn-restart" class="ghost" type="button">重新开始</button>
+        <button id="btn-quit" class="ghost" type="button">回首页</button>
+      </div>
     </div>
   </section>
 
@@ -181,6 +196,7 @@
       <small id="ch-sub">本局饭局卡 · 挑一张</small>
       <div id="ch-stack" class="ch-stack hidden"></div>
       <div id="ch-list" class="ch-list"></div>
+      <button id="ch-back" class="link" type="button">返回首页</button>
     </div>
   </section>
 
@@ -254,7 +270,7 @@
         <button id="btn-post" class="ghost hot" type="button">发笔记</button>
         <button id="btn-save" class="ghost" type="button">保存</button>
         <button id="btn-challenge" class="ghost" type="button">挑战好友</button>
-        <button id="btn-home" class="ghost" type="button">首页</button>
+        <button id="btn-home" class="ghost" type="button">回首页</button>
       </div>
       <img id="r-img" class="r-img" alt="饭局报告">
       <p id="save-tip" class="save-tip"></p>
@@ -266,6 +282,7 @@
         <button id="btn-share" class="ghost hidden" type="button">私信给好友</button>
         <button id="btn-pair" class="ghost" type="button">测饭搭子</button>
       </div>
+      <button id="btn-home2" class="ghost wide" type="button">回首页</button>
     </div>
   </section>
 </div>

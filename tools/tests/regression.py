@@ -1,6 +1,6 @@
 """火锅局回归测试（Playwright + Chrome）。
 用法：项目根目录 python3 -m http.server 8765，然后 python3 tools/tests/regression.py
-覆盖：火锅日记逐天解锁 / 每天最多 3 天、各剧本 × 锅底、饭局卡三选一、每张卡、饭局夜叠卡、翻台挑战、
+覆盖：火锅日记逐天解锁 / 每天最多 3 天 / 第一天就有抢菜、暂停与返回（任何返回都回首页）、各剧本 × 锅底、饭局卡三选一、每张卡、饭局夜叠卡、翻台挑战、
 11 道菜的特殊玩法、每日一锅确定性、挑战码、丢分分析、纪录线、结算页、平台接口（模拟小红书容器）、存档迁移、渲染节流、布局。"""
 import asyncio, json, sys
 from playwright.async_api import async_playwright
@@ -64,13 +64,21 @@ async def main():
         ok('新玩家首页：日记第 1 天、今日火锅锁着', await js(pg, "document.getElementById('dy-n').textContent.indexOf('第 1 ')===0 && !document.getElementById('d-lock').classList.contains('hidden')"))
         await js(pg, "document.getElementById('diary').click()"); await pg.wait_for_timeout(500)
         t = await js(pg, "document.getElementById('coach-title').textContent")
-        ok('第 1 天先教「煮」', '第 3 步' in t, t)
+        ok('第 1 天先教「煮」（编号从第 1 步开始）', '第 1 步 · 煮' in t, t)
         # 用游戏接口走完第 1 天的三步：煮下锅 → 捞起 → 夹给闺蜜
         await js(pg, """() => { var g=HP.game; var r=document.getElementById('plate-luncheon').getBoundingClientRect(), c=document.getElementById('cv').getBoundingClientRect();
           g.dragStart('luncheon', r.left-c.left+r.width/2, r.top-c.top+r.height/2); var z=g.zones[3], q=g.toScreen(z.cx,z.cy); g.dragMove(q.x,q.y+54*g.unit); g.dragEnd(); }""")
         await pg.wait_for_timeout(400)
         await js(pg, "(()=>{var g=HP.game,f=g.foods.filter(x=>x.state==='in')[0]; f.d=HP.FOODS[f.type].a+1; var p=g.toScreen(f.nx,f.ny); g.pointerDown(p.x,p.y); g.pointerUp();})()")
         await pg.wait_for_timeout(1800)
+        t = await js(pg, "document.getElementById('coach-title').textContent")
+        ok('第 1 天教「护食」：老王来抢鸭血', '第 2 步 · 护食' in t and await js(pg, "HP.game.npcs.length>0 && HP.game.npcs[0].phase!=='idle'"), t)
+        # 点老王的筷子挡开（等筷子伸到看得见的地方）
+        await pg.wait_for_timeout(1200)
+        await js(pg, "(()=>{var g=HP.game,n=g.npcs[0]; if(n.tip){g.pointerDown(n.tip.x,n.tip.y); g.pointerUp();}})()")
+        await pg.wait_for_timeout(5000)
+        t = await js(pg, "document.getElementById('coach-title').textContent")
+        ok('护食学完进入「照顾同桌」', '第 3 步 · 照顾同桌' in t, t)
         await js(pg, "(()=>{var g=HP.game,f=g.foods.filter(x=>x.state==='in'&&x.type==='luncheon')[0], d=g.diners.filter(x=>x.id==='friend')[0]; var p=g.toScreen(f.nx,f.ny); g.pointerDown(p.x,p.y); g.pointerMove(p.x+20,p.y-30); g.pointerMove(d.x,d.y+54*g.unit); g.pointerUp();})()")
         await pg.wait_for_timeout(1900)
         t = await js(pg, "document.getElementById('coach-title').textContent")
@@ -78,7 +86,7 @@ async def main():
         await js(pg, "document.getElementById('coach-btn').click()"); await pg.wait_for_timeout(600)
         st = json.loads(await js(pg, "JSON.stringify({mode:HP.game.mode,run:HP.game.running,npcs:HP.game.npcs.length,cards:HP.game.cards.length,tray:[].map.call(document.querySelectorAll('.plate'),e=>e.dataset.food)})"))
         swish = await js(pg, "[].some.call(document.querySelectorAll('.plate'),e=>HP.FOODS[e.dataset.food].mode==='swish')")
-        ok('第 1 天正式局：只有煮的菜、没人抢、没饭局卡', st['mode'] == 'play' and st['run'] and st['npcs'] == 0 and st['cards'] == 0 and not swish, st)
+        ok('第 1 天正式局：只有煮的菜、老王会抢菜、没饭局卡', st['mode'] == 'play' and st['run'] and st['npcs'] > 0 and st['cards'] == 0 and not swish, st)
         await pg.wait_for_timeout(1500)
         await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1400)
         r1 = json.loads(await js(pg, "JSON.stringify({day:HP.profile().day, txt:document.getElementById('r-day').textContent, top:document.getElementById('btn-again').getBoundingClientRect().top, img:document.getElementById('r-img').getBoundingClientRect().top, next:document.getElementById('r-next-text').textContent})"))
@@ -96,7 +104,7 @@ async def main():
             await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1400)
         cap = json.loads(await js(pg, "JSON.stringify({day:HP.profile().day, txt:document.getElementById('r-day').textContent})"))
         ok('一个自然日最多翻 3 天（停在第 4 天，提示明天）', cap['day'] == 4 and '明天' in cap['txt'], cap)
-        ok('第 3 天起有人抢菜', await js(pg, "HP.game.npcs.length>0"))
+        ok('第 4 天也照样有人抢菜', await js(pg, "HP.game.npcs.length>0"))
         ok('新玩家流程无报错', not errs, errs[:3]); await pg.close()
 
         # ---------- 2. 每个剧本 × 两种锅：三选一、开局、出单、结算 ----------
@@ -335,6 +343,90 @@ async def main():
             setTimeout(function(){ var shop=n; g.render=r; res(JSON.stringify({home:home, shop:shop})); }, 1000); }, 1000); })"""))
         ok('首页约 20 帧、商店盖住时不画', 8 <= frames['home'] <= 30 and frames['shop'] == 0, frames)
         await pg.close()
+
+        # ---------- 15. 暂停与返回：任何返回都回游戏首页，不会退出 ----------
+        BACK = "new Promise(function(r){ window.addEventListener('popstate', function f(){ window.removeEventListener('popstate', f); setTimeout(r, 120); }); history.back(); })"
+        vis = lambda i: f"!document.getElementById('{i}').classList.contains('hidden')"
+        pg, errs = await page(b)
+        await js(pg, VETERAN)
+        h0 = await js(pg, "history.length")
+        await js(pg, "document.querySelector('[data-scene=bros]').click()"); await pg.wait_for_timeout(300)
+        await js(pg, PICK_FIRST_CARD); await pg.wait_for_timeout(1500)
+        card0 = await js(pg, "HP.game.card&&HP.game.card.id")
+        ok('开局垫了一条返回记录', await js(pg, "history.length") == h0 + 1)
+        await js(pg, "document.getElementById('btn-pause').click()"); await pg.wait_for_timeout(200)
+        st = json.loads(await js(pg, "JSON.stringify({p:" + vis('pause') + ", run:HP.game.running, t:HP.game.elapsed})"))
+        await pg.wait_for_timeout(800)
+        ok('点左上角暂停：时间停住', st['p'] and not st['run'] and abs(await js(pg, "HP.game.elapsed") - st['t']) < 0.01, st)
+        await js(pg, "document.getElementById('btn-resume').click()"); await pg.wait_for_timeout(500)
+        ok('继续吃：接着跑', await js(pg, "HP.game.running && document.getElementById('pause').classList.contains('hidden') && HP.game.elapsed>" + str(st['t'])))
+        # 返回键：局中 → 暂停；再按 → 回首页
+        await js(pg, BACK)
+        ok('局中按返回 → 暂停（不退出）', await js(pg, vis('pause') + " && !HP.game.running"))
+        await js(pg, "document.getElementById('btn-restart').click()"); await pg.wait_for_timeout(400)
+        ok('重新开始：同一张饭局卡、分数清零', await js(pg, "HP.game.running && HP.game.stats.score===0 && HP.game.elapsed<1") and await js(pg, "HP.game.card&&HP.game.card.id") == card0)
+        await js(pg, BACK); await js(pg, BACK)
+        ok('暂停时再按返回 → 回首页，锅清空', await js(pg, vis('home') + " && !HP.game.running && HP.game.foods.length===0 && document.getElementById('pause').classList.contains('hidden')"))
+        # 结算页按返回 → 回首页
+        await js(pg, "document.querySelector('[data-scene=bros]').click()"); await pg.wait_for_timeout(300)
+        await js(pg, PICK_FIRST_CARD); await pg.wait_for_timeout(1200)
+        await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1400)
+        ok('打完一局到结算页', await js(pg, vis('result')))
+        await js(pg, BACK)
+        ok('结算页按返回 → 回首页', await js(pg, vis('home') + " && document.getElementById('result').classList.contains('hidden')"))
+        # 用页面里的按钮回到首页后，再按一次返回：留在首页，提示再按一次才退出
+        await js(pg, "document.getElementById('btn-shop').click()"); await pg.wait_for_timeout(200)
+        await js(pg, "document.querySelector('#shop [data-close]').click()"); await pg.wait_for_timeout(200)
+        await js(pg, BACK)
+        ok('首页按返回：提示再按一次退出（还留在首页）', await js(pg, vis('home') + " && document.getElementById('msg').textContent.indexOf('再按一次')>=0"))
+        # 各个面板按返回 → 回首页
+        for btn in ['btn-shop', 'btn-codex', 'btn-howto', 'btn-code']:
+            await js(pg, f"document.getElementById('{btn}').click()"); await pg.wait_for_timeout(200)
+            await js(pg, BACK)
+            ok(f'{btn} 面板按返回 → 回首页', await js(pg, vis('home')))
+        # 三选一、开局说明都有「返回首页」
+        await js(pg, "document.querySelector('[data-scene=bros]').click()"); await pg.wait_for_timeout(300)
+        await js(pg, "document.getElementById('ch-back').click()"); await pg.wait_for_timeout(200)
+        ok('饭局卡三选一点「返回首页」', await js(pg, vis('home') + " && document.getElementById('choose').classList.contains('hidden')"))
+        await js(pg, "delete HP.profile().seen.scene_team; document.querySelector('[data-scene=team]').click()"); await pg.wait_for_timeout(300)
+        ok('第一次玩的剧本说明有返回', await js(pg, vis('intro')))
+        await js(pg, "document.getElementById('btn-intro-back').click()"); await pg.wait_for_timeout(200)
+        ok('说明页返回首页，下次还会再看到说明', await js(pg, vis('home') + " && !HP.profile().seen.scene_team"))
+        # 结算页上下都有「回首页」
+        await js(pg, "document.querySelector('[data-scene=bros]').click()"); await pg.wait_for_timeout(300)
+        await js(pg, PICK_FIRST_CARD); await pg.wait_for_timeout(1200)
+        await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1400)
+        await js(pg, "document.getElementById('btn-home2').click()"); await pg.wait_for_timeout(200)
+        ok('结算页底部的「回首页」', await js(pg, vis('home')))
+        # 切到后台自动暂停
+        await js(pg, "document.querySelector('[data-scene=solo]').click()"); await pg.wait_for_timeout(300)
+        await js(pg, PICK_FIRST_CARD); await pg.wait_for_timeout(1200)
+        await js(pg, "Object.defineProperty(document,'hidden',{configurable:true,get:function(){return true}}); document.dispatchEvent(new Event('visibilitychange'));")
+        ok('切到后台：局中自动暂停', await js(pg, vis('pause') + " && !HP.game.running"))
+        await js(pg, "Object.defineProperty(document,'hidden',{configurable:true,get:function(){return false}}); document.dispatchEvent(new Event('visibilitychange')); document.getElementById('btn-quit').click()")
+        await pg.wait_for_timeout(200)
+        ok('暂停页「回首页」', await js(pg, vis('home')))
+        # 饭局夜中途退出：这一晚作废
+        await js(pg, "document.getElementById('btn-night').click()"); await pg.wait_for_timeout(300)
+        await js(pg, PICK_FIRST_CARD); await pg.wait_for_timeout(1200)
+        await js(pg, "document.getElementById('btn-pause').click()")
+        nt = await js(pg, "document.getElementById('pz-text').textContent")
+        await js(pg, "document.getElementById('btn-quit').click()"); await pg.wait_for_timeout(200)
+        await js(pg, "document.getElementById('btn-night').click()"); await pg.wait_for_timeout(300)
+        ok('饭局夜中途回首页，再进是第 1 桌', '散场' in nt and '第 1 桌' in await js(pg, "document.getElementById('ch-sub').textContent"), nt)
+        ok('暂停与返回无报错', not errs, errs[:3]); await pg.close()
+
+        # 新玩家：第 1 天教学中途回首页，下次还会教
+        pg, errs = await page(b)
+        await js(pg, "document.getElementById('diary').click()"); await pg.wait_for_timeout(500)
+        await js(pg, "document.getElementById('btn-pause').click()"); await pg.wait_for_timeout(200)
+        tut = json.loads(await js(pg, "JSON.stringify({p:" + vis('pause') + ", restart:document.getElementById('btn-restart').classList.contains('hidden')})"))
+        await js(pg, "document.getElementById('btn-quit').click()"); await pg.wait_for_timeout(300)
+        back = json.loads(await js(pg, "JSON.stringify({home:" + vis('home') + ", coach:document.getElementById('coach').classList.contains('hidden'), seen:!!HP.profile().seen.lesson_1, run:HP.game.running})"))
+        ok('教学里也能暂停（不显示重新开始），回首页后下次接着教', tut['p'] and tut['restart'] and back['home'] and back['coach'] and not back['seen'] and not back['run'], (tut, back))
+        await js(pg, "document.getElementById('diary').click()"); await pg.wait_for_timeout(500)
+        ok('再点日记：重新开始第 1 天教学', '第 1 步 · 煮' in await js(pg, "document.getElementById('coach-title').textContent"))
+        ok('教学退出无报错', not errs, errs[:3]); await pg.close()
 
         # ---------- 14. 小屏 / 大屏布局 ----------
         for vw, vh, tag in [(360, 640, 'small'), (430, 932, 'big')]:

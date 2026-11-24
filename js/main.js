@@ -3,7 +3,8 @@
 (function () {
   var HP = window.HP, P = HP.platform;
   var $ = function (id) { return document.getElementById(id); };
-  function show(id) { $(id).classList.remove('hidden'); }
+  var onShow = null;   // 打开浮层时的钩子：给「返回」垫一条历史记录（见 init 里的返回处理）
+  function show(id) { $(id).classList.remove('hidden'); if (onShow) onShow(id); }
   function hide(id) { $(id).classList.add('hidden'); }
   function visible(id) { var e = $(id); return !!e && !e.classList.contains('hidden'); }
 
@@ -374,7 +375,7 @@
     for (var ci = 0; ci < closers.length; ci++) closers[ci].addEventListener('click', function () {
       var id = this.getAttribute('data-close'); hide(id);
       if (id === 'pair') { show('result'); return; }
-      showHome();
+      quitToHome();
     });
 
     /* ---------- 教学引导的界面 ---------- */
@@ -395,6 +396,7 @@
       }
     };
     function endTutorial() {
+      quitKey = null;   // 教完或跳过：这一课算学过了
       tutorial.stop(); $('coach').className = 'coach hidden';
       profile.tutorialDone = true; saveProfile();
       if (pending) { var o = pending; pending = null; begin(o); } else { game.running = false; hideOverlays(); showHome(); }
@@ -453,7 +455,7 @@
     function hideTip() { clearTimeout(tipTimer); $('tip').className = 'tip'; }
     function hideOverlays() {
       hideTip();
-      ['home', 'shop', 'codex', 'result', 'howto', 'intro', 'pair', 'flip', 'choose', 'night', 'codebox', 'rank'].forEach(hide);
+      ['home', 'shop', 'codex', 'result', 'howto', 'intro', 'pair', 'flip', 'choose', 'night', 'codebox', 'rank', 'pause'].forEach(hide);
       $('event').className = 'event'; $('combo').className = 'combo'; $('score').textContent = '0';
     }
     function showIntro(sub, title, list, opt) {
@@ -463,31 +465,100 @@
       ['home', 'shop', 'codex', 'howto', 'result', 'codebox'].forEach(hide);
       show('intro');
     }
-    $('btn-intro').addEventListener('click', function () { var o = pending; pending = null; hide('intro'); prepare(o); });
+    $('btn-intro').addEventListener('click', function () { var o = pending; pending = null; quitKey = null; hide('intro'); prepare(o); });
+
+    /* ---------- 返回：任何「返回」都回游戏首页，不会直接退出 ----------
+       局中点左上角（剧本名）暂停：继续 / 重新开始 / 回首页。
+       手机返回键、小红书容器的返回按钮如果走网页历史，也在这里接住：
+       局中按 → 暂停；暂停、结算、各个面板里按 → 回首页；在首页再按才真的退出。 */
+    var SCREENS = { shop: 1, codex: 1, howto: 1, result: 1, intro: 1, pair: 1, choose: 1, night: 1, codebox: 1, rank: 1, pause: 1, flip: 1 };
+    var guarded = false, paused = false, quitKey = null;
+    function guard() {
+      if (guarded || !window.history || typeof history.pushState !== 'function') return;
+      try { history.pushState({ hotpot: 1 }, ''); guarded = true; } catch (e) { /* 改不了历史也没关系，页面里的返回按钮照样能用 */ }
+    }
+    onShow = function (id) { if (SCREENS[id]) guard(); };
+    window.addEventListener('popstate', function () { guarded = false; goBack(); });
+    function goBack() {
+      if (!game || visible('loading')) return;
+      if (visible('pause') || visible('flip')) { quitToHome(); return; }
+      if (game.running) { pauseRound(); return; }
+      if (visible('pair')) { hide('pair'); show('result'); return; }
+      if (visible('codebox') && codeFrom === 'result' && cardUrl) { hide('codebox'); show('result'); return; }
+      if (visible('home')) { msg('再按一次返回就退出火锅局'); return; }
+      quitToHome();
+    }
+    function pauseRound() {
+      if (!game || !game.running) return;
+      if (dragId !== null) { dragId = null; game.dragEnd(); }
+      if (potId !== null) { potId = null; game.pointerUp(); }
+      game.running = false; paused = true;
+      P.keepScreenOn(false); hideTip();
+      var o = current || {}, tut = game.mode === 'tutorial';
+      $('pz-sub').textContent = tut ? '教学暂停' : '暂停中';
+      $('pz-text').textContent = tut ? '回首页也没关系，下次开吃接着教'
+        : o.kind === 'night' ? '回首页这一晚就散场，前几桌的金币已到账'
+        : o.kind === 'daily' && !o.practice ? '今日火锅中途退出不算成绩，回来还能重新吃'
+        : '中途退出，这局不记分';
+      $('btn-restart').classList.toggle('hidden', tut);
+      show('pause');
+    }
+    function resumeRound() {
+      if (!paused) return;
+      paused = false; hide('pause');
+      game.running = true; last = 0;
+      if (game.mode === 'play') P.keepScreenOn(true);
+    }
+    function restartRound() {
+      var o = current;
+      if (!o || game.mode !== 'play') { quitToHome(); return; }
+      paused = false; o.replay = true;
+      startRound(o, o.kind === 'night' ? null : game.card);
+    }
+    /* 回首页：不管在哪（局中、暂停、开局翻卡、结算、面板），收拾干净再回去 */
+    function quitToHome() {
+      clearTimeout(flipTimer); flipDone = null;
+      if (game) {
+        if (game.mode === 'tutorial') { tutorial.stop(); $('coach').className = 'coach hidden'; }
+        if (game.running || paused) { dragId = null; potId = null; game.running = false; game.reset(); }
+        // 当天的教学 / 说明没看完就退出：下次开吃再看一遍
+        if (quitKey) { delete profile.seen[quitKey]; saveProfile(); }
+      }
+      quitKey = null; paused = false; night = null; pending = null;
+      P.keepScreenOn(false);
+      hideOverlays(); showHome();
+      if (game) syncHintBtn();
+    }
+    $('btn-pause').addEventListener('click', function () { if (game && game.running) pauseRound(); });
+    $('btn-resume').addEventListener('click', resumeRound);
+    $('btn-restart').addEventListener('click', restartRound);
+    $('btn-quit').addEventListener('click', quitToHome);
+    $('btn-intro-back').addEventListener('click', quitToHome);
+    $('ch-back').addEventListener('click', quitToHome);
 
     /* 开局前：当天的新机制先教（火锅日记），第一次玩的剧本先看说明 */
     function begin(opt) {
       var story = opt.kind === 'scene' || opt.kind === 'night', dn = profile.day, D = HP.dayCfg(dn);
       // 从挑战码 / 今日火锅直接进来、还没学过：先走完整教学
       if (!story && !profile.tutorialDone) {
-        for (var i = 1; i <= 4; i++) profile.seen['lesson_' + i] = 1;
+        for (var i = 1; i <= HP.DAY_MAX; i++) if (HP.dayCfg(i).lesson) profile.seen['lesson_' + i] = 1;
         saveProfile(); pending = opt; startTutorial(null); return;
       }
       if (story && D.lesson && !profile.seen['lesson_' + dn]) {
         profile.seen['lesson_' + dn] = 1; saveProfile();
-        pending = opt;
+        pending = opt; quitKey = 'lesson_' + dn;
         startTutorial(D.lesson, { title: '火锅日记 · 第 ' + dn + ' 天 · ' + D.title,
           text: D.learn + '<br>正式开吃拿到 <b>2 颗星</b>，日记就翻到下一天' });
         return;
       }
       if (story && !D.lesson && dn > 1 && !profile.seen['dayintro_' + dn]) {
-        profile.seen['dayintro_' + dn] = 1; saveProfile();
+        profile.seen['dayintro_' + dn] = 1; saveProfile(); quitKey = 'dayintro_' + dn;
         showIntro('火锅日记 · 第 ' + dn + ' 天', D.title, [D.learn, '拿到 <b>2 颗星</b>，日记翻到下一天'], opt);
         return;
       }
       var sid = opt.kind === 'scene' ? opt.scene : null, S = sid && HP.SCENES[sid];
       if (S && S.intro && !profile.seen['scene_' + sid]) {
-        profile.seen['scene_' + sid] = 1; saveProfile();
+        profile.seen['scene_' + sid] = 1; saveProfile(); quitKey = 'scene_' + sid;
         showIntro('第一次玩', S.name, S.intro, opt);
         return;
       }
@@ -542,7 +613,8 @@
     var WAIT_TEXT = '等领导先动筷…';
     function bestKeyOf(opt) { return opt.kind === 'daily' ? 'daily' : opt.kind === 'night' ? 'night' : opt.kind === 'challenge' ? null : opt.sid || opt.scene; }
     function startRound(opt, card) {
-      audio.unlock(); hideOverlays(); pending = null; current = opt;
+      audio.unlock(); hideOverlays(); pending = null; current = opt; paused = false; quitKey = null;
+      guard();
       var kind = opt.kind, rules = {}, seed = 0, pot = profile.pot, sid = opt.scene, menu, cards = [], flip = null;
       if (kind === 'daily' || (kind === 'challenge' && opt.issue)) {
         var dk = kind === 'daily' ? HP.dayKey() : HP.dayOfIssue(opt.issue), D = HP.dailySetup(dk);
@@ -641,6 +713,7 @@
 
     function startTutorial(list, done) {
       audio.unlock(); hideOverlays();
+      guard();
       var L = list || HP.Tutorial.ALL, t = ['luncheon', 'potato', 'duckblood', 'shrimp'];
       if (L.indexOf(2) >= 0) t.unshift('maodu');
       if (L.indexOf(0) >= 0) t.unshift('beef');
@@ -867,7 +940,7 @@
       show('night');
     }
     $('btn-next-table').addEventListener('click', function () { hide('night'); night.idx++; prepare({ kind: 'night' }); });
-    $('btn-night-quit').addEventListener('click', function () { night = null; hideOverlays(); showHome(); });
+    $('btn-night-quit').addEventListener('click', quitToHome);
 
     /* ---------- 结算页按钮 ---------- */
     $('btn-again').addEventListener('click', function () {
@@ -876,7 +949,8 @@
       var n = { kind: o.kind, scene: o.scene, seed: o.seed, pot: o.pot, issue: o.issue, vs: o.vs, replay: true };
       if (o.kind === 'scene') begin(n); else prepare(n);
     });
-    $('btn-home').addEventListener('click', function () { night = null; hideOverlays(); showHome(); });
+    $('btn-home').addEventListener('click', quitToHome);
+    $('btn-home2').addEventListener('click', quitToHome);
     $('r-next').addEventListener('click', function () { var ng = HP.nextGoal(profile); if (ng && ng.ready) showShop(); });
     function post(note, images0) {
       if (!note) return;
@@ -925,7 +999,7 @@
     }
     $('btn-code').addEventListener('click', function () { openCode('input', 'home'); });
     $('btn-challenge').addEventListener('click', function () { openCode(lastCode ? 'show' : 'make', 'result'); });
-    $('cb-back').addEventListener('click', function () { hide('codebox'); if (codeFrom === 'result' && cardUrl) show('result'); else showHome(); });
+    $('cb-back').addEventListener('click', function () { hide('codebox'); if (codeFrom === 'result' && cardUrl) show('result'); else quitToHome(); });
     $('cb-post').addEventListener('click', function () { post(lastNote, [cardUrl]); });
     $('cb-go').addEventListener('click', function () {
       var c = HP.decodeChallenge($('cb-field').value);
@@ -1015,7 +1089,7 @@
 
     /* ---------- 主循环（低端机自动降特效；面板盖住时不画、首页降帧） ---------- */
     var last = 0, slow = 0, goalTick = 0, skip = 0, acc = 0;
-    var COVER = ['result', 'shop', 'codex', 'howto', 'pair', 'codebox', 'rank', 'night'];
+    var COVER = ['result', 'shop', 'codex', 'howto', 'pair', 'codebox', 'rank', 'night', 'pause'];
     function covered() { for (var i = 0; i < COVER.length; i++) if (visible(COVER[i])) return true; return false; }
     function loop(ts) {
       requestAnimationFrame(loop);
@@ -1048,7 +1122,8 @@
     }
     document.addEventListener('visibilitychange', function () {
       last = 0;
-      if (document.hidden) audio.suspend(); else if (audio.ctx) audio.unlock();
+      // 切到后台（接电话、切 App）：局中自动暂停，回来先看到暂停页，不会一回来就手忙脚乱
+      if (document.hidden) { audio.suspend(); if (game && game.running) pauseRound(); } else if (audio.ctx) audio.unlock();
     });
   }
 

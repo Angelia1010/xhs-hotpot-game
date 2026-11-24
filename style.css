@@ -473,3 +473,16 @@ body {
 .plate .tag.sp { right: auto; left: 6%; background: #3a6fd8; color: #fff; font-size: 9px; }
 .s-item .sp { display: inline-block; margin-top: 2px; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 800; background: #3a6fd8; color: #fff; }
 .timer.lives .ring { stroke: #ff6b5a; }
+
+/* 暂停：左上角的剧本名就是暂停键（HUD 本身不接点击，只有这颗按钮接） */
+#btn-pause { display: flex; align-items: center; pointer-events: auto; font: inherit; color: inherit; text-align: left; cursor: pointer; -webkit-appearance: none; }
+#btn-pause > span { display: block; }
+#btn-pause .pz { display: block; flex: none; width: 10px; height: 14px; margin-right: 9px; border-left: 3px solid #ffd35c; border-right: 3px solid #ffd35c; box-sizing: border-box; }
+#btn-pause:active { transform: scale(0.96); }
+#pause { background: rgba(10,2,0,0.78); }
+.pause-card h2 { margin: 6px 0 4px; font-size: 26px; font-weight: 900; color: #ffd35c; }
+.pause-card small { font-size: 12px; letter-spacing: 2px; color: #ffb347; font-weight: 800; }
+.pause-card .sub { min-height: 18px; margin-bottom: 14px; }
+.pause-card .r-row { margin-top: 12px; }
+.ghost.wide { display: block; width: 100%; margin-top: 14px; padding: 12px 0; }
+#ch-back { display: block; margin: 10px auto 0; }

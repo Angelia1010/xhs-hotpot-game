@@ -78,7 +78,7 @@ HP.slotOf = function (type) { return HP.FOODS[type].special === 'bulky' ? 2 : 1;
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
-HP.VERSION = '1.3.0';
+HP.VERSION = '1.3.1';
 HP.RULES = 5;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
 /* 越贵的菜分越高：¥5 ×0.7 … ¥15 ×1.1 … ¥30 ×1.7 */
@@ -193,19 +193,20 @@ HP.NIGHT = ['bros', 'team', 'family'];
    rules：这一天还没学的机制先关掉；lesson：开局前的教学步骤（tutorial.js 的 STEPS 序号）
    scenes / modes：这一天新开的剧本 / 玩法；story：完成这一天后同桌发的朋友圈 */
 HP.DAYS = [
-  { title: '第一次吃火锅', learn: '「煮」：拖进锅里松手，变色了点它捞；同桌点的菜拖到 TA 头像上',
-    lesson: [3, 4, 6], scenes: ['bros'], rules: { swish: false, dips: false, steal: false, events: false, cards: false },
+  // 抢菜是火锅局的招牌，第一天就有：老王的筷子伸过来，点它挡开
+  { title: '第一次吃火锅', learn: '「煮」：拖进锅里松手，变色了点它捞；老王会<b>抢菜</b>，筷子伸过来<b>点它</b>挡开；同桌点的菜拖到 TA 头像上',
+    lesson: [3, 4, 5, 6], scenes: ['bros'], rules: { swish: false, dips: false, events: false, cards: false },
     story: { who: 'friend', t: '第一次跟新朋友吃火锅，TA 给我夹的午餐肉刚刚好', img: 'moment_friend_1' } },
   { title: '学会「涮」', learn: '「涮」：拖进锅里别松手，松手就捞起',
-    lesson: [0, 1], rules: { dips: false, steal: false, events: false, cards: false },
+    lesson: [0, 1], rules: { dips: false, events: false, cards: false },
     story: { who: 'friend', t: '宣布：以后肥牛都归 TA 涮' } },
-  { title: '老王来了', learn: '老王会抢菜：筷子伸过来时<b>点它</b>挡开',
-    lesson: [5], rules: { dips: false, events: false, cards: false },
-    story: { who: 'laowang', t: '今天抢菜输了，这兄弟手是真快', img: 'moment_laowang_1' } },
   { title: '七上八下', learn: '毛肚要上下提放 7~8 次；鸭肠三上三下',
     lesson: [2], rules: { events: false, cards: false },
-    story: { who: 'laowang', t: '服了，毛肚涮得比我们重庆人还讲究' } },
-  { title: '饭桌意外', learn: '服务员加汤会降温，老王开大火熟得飞快；新剧本「公司团建」',
+    story: { who: 'laowang', t: '服了，毛肚涮得比我们重庆人还讲究', img: 'moment_laowang_1' } },
+  { title: '饭桌意外', learn: '服务员加汤会降温，老王开大火熟得飞快，盯紧火候',
+    rules: { cards: false },
+    story: { who: 'laowang', t: '今天抢菜输了，这兄弟手是真快' } },
+  { title: '公司团建', learn: '新剧本「公司团建」：先等领导动筷，领导讲话别动筷子，举杯要干杯',
     scenes: ['team'], rules: { cards: false },
     story: { who: 'boss', t: '今天团建，新同事挺有眼力见', img: 'moment_boss_1' } },
   { title: '饭局卡', learn: '每局开吃前从 3 张饭局卡里<b>挑一张</b>：规则会变，完成目标拿第三颗星',
