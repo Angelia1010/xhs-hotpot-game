@@ -55,7 +55,7 @@ for fn, fid in FOOD.items():
     im = Image.open(os.path.join(SRC, fn)).convert('RGBA')
     states = split_states(im)
     # 三态统一缩放比例，保持相对大小（煮老会缩小）
-    scale = 220 / max(max(s.size) for s in states)
+    scale = 168 / max(max(s.size) for s in states)   # 锅里最大约 65px 宽，2 倍屏够用
     sizes = []
     for i, s in enumerate(states):
         s = s.resize((max(1, round(s.width*scale)), max(1, round(s.height*scale))), Image.LANCZOS)
@@ -66,11 +66,11 @@ for fn, fid in FOOD.items():
 for fn in sorted(os.listdir(SRC)):
     if fn.startswith('plate_'):
         fid = fn[6:-4]; im = Image.open(os.path.join(SRC, fn)).convert('RGBA')
-        im = im.crop(bbox(im)); manifest['plate'][fid] = save(im, os.path.join(OUT, f'plate/{fid}.webp'), 320)
+        im = im.crop(bbox(im)); manifest['plate'][fid] = save(im, os.path.join(OUT, f'plate/{fid}.webp'), 192)   # 托盘最多 86px 宽
 
-SCENE = {'pot.png': 1000, 'table.png': 1100, 'card_bg.png': 1080, 'chopsticks_open.png': 700,
+SCENE = {'pot.png': 820, 'table.png': 1100, 'card_bg.png': 1080, 'chopsticks_open.png': 700,
          'chopsticks_closed.png': 700, 'ladle.png': 600, 'hand_laowang.png': 700,
-         'hand_boss.png': 700, 'hand_friend.png': 700, 'pot_yuanyang.png': 1000}
+         'hand_boss.png': 700, 'hand_friend.png': 700, 'pot_yuanyang.png': 820}
 for fn, side in SCENE.items():
     if not os.path.exists(os.path.join(SRC, fn)): continue
     im = Image.open(os.path.join(SRC, fn))
