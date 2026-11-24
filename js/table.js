@@ -17,6 +17,7 @@ var HP = window.HP = window.HP || {};
       d.x = self.W * SEAT_X[d.seat]; d.y = self.seatTop + B * 0.44; d.r = R;
       var side = d.seat === 'R' ? -1 : 1;
       d.bx = d.x + side * R * 1.75; d.by = d.y + R * 0.1; d.br = R * 0.72;
+      d.wx = d.x - side * R * 1.45; d.wy = d.y + R * 0.75;   // 面前的碗：夹过去的菜落在这里
     });
   };
 
@@ -189,6 +190,8 @@ var HP = window.HP = window.HP || {};
         ctx.fillStyle = d === hover ? 'rgba(255,214,92,0.55)' : 'rgba(255,214,92,0.18)';
         ctx.beginPath(); ctx.arc(d.x, d.y, r * (d === hover ? 1.42 : 1.25), 0, Math.PI * 2); ctx.fill();
       }
+      var bw = self.img.scene.bowl;
+      if (bw) { var bs = d.r * 1.15; ctx.drawImage(bw, d.wx - bs / 2, d.wy - bs * bw.height / bw.width / 2, bs, bs * bw.height / bw.width); }
       var im = self.avatarImg(d, d.mood);
       if (im) {
         var s = r * 2.85;

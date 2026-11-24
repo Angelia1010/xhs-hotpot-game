@@ -286,7 +286,7 @@ var HP = window.HP = window.HP || {};
   /* 夹给同桌：飞到 TA 碗里 */
   Game.prototype.serveFood = function (f, d, x, y) {
     f.state = 'lift';
-    this.lift.push({ f: f, t: 0, x0: x, y0: y, tx: d.x, ty: d.y + d.r * 0.4 });
+    this.lift.push({ f: f, t: 0, x0: x, y0: y, tx: d.wx, ty: d.wy });
     this.serve(f, d, x, y);
   };
 
@@ -420,7 +420,7 @@ var HP = window.HP = window.HP || {};
     var pt = this.dragPoint(h);
     var f = { type: h.type, d: h.d, dips: HP.FOODS[h.type].dips ? h.dips : null, rot: h.rot, state: 'lift', cell: h.lastCell };
     var dn = this.dinerAt(h.x, h.y, pt.x, pt.y), r;
-    if (dn) { this.lift.push({ f: f, t: 0, x0: pt.x, y0: pt.y, tx: dn.x, ty: dn.y + dn.r * 0.4 }); r = this.serve(f, dn, pt.x, pt.y); }
+    if (dn) { this.lift.push({ f: f, t: 0, x0: pt.x, y0: pt.y, tx: dn.wx, ty: dn.wy }); r = this.serve(f, dn, pt.x, pt.y); }
     else { this.lift.push({ f: f, t: 0, x0: pt.x, y0: pt.y }); r = this.award(f, pt.x, pt.y); }
     this.emit('holdRelease', { type: h.type, kind: r.kind, dips: h.dips });
   };

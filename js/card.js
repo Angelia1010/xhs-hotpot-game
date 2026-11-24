@@ -163,12 +163,12 @@ var HP = window.HP = window.HP || {};
     });
     ctx.font = '900 60px ' + FONT; ctx.fillStyle = '#fff1c4'; ctx.fillText('×', W / 2, 262);
     // 默契度
-    ctx.font = '600 32px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.8)'; ctx.fillText('饭搭子默契度', W / 2, 980);
-    ctx.font = '900 170px ' + FONT; ctx.fillStyle = '#ffd35c'; ctx.fillText(r.n + '%', W / 2, 1090);
-    ctx.font = '900 64px ' + FONT; ctx.fillStyle = r.n >= 64 ? '#7dff9a' : '#ff9b7a'; ctx.fillText(r.v, W / 2, 1210);
-    fitFont(ctx, r.t, '600', 36, W - 140); ctx.fillStyle = '#ffe9cf'; ctx.fillText(r.t, W / 2, 1286);
-    ctx.font = '700 30px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.95)';
-    ctx.fillText('来小红书搜「火锅局」，测测你们是不是饭搭子', W / 2, 1384);
+    ctx.font = '600 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.8)'; ctx.fillText('饭搭子默契度', W / 2, 1100);
+    ctx.font = '900 140px ' + FONT; ctx.fillStyle = '#ffd35c'; ctx.fillText(r.n + '%', W / 2, 1186);
+    ctx.font = '900 54px ' + FONT; ctx.fillStyle = r.n >= 64 ? '#7dff9a' : '#ff9b7a'; ctx.fillText(r.v, W / 2, 1284);
+    fitFont(ctx, r.t, '600', 32, W - 140); ctx.fillStyle = '#ffe9cf'; ctx.fillText(r.t, W / 2, 1342);
+    ctx.font = '700 28px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.95)';
+    ctx.fillText('来小红书搜「火锅局」，测测你们是不是饭搭子', W / 2, 1404);
     return c.toDataURL('image/jpeg', 0.85);
   };
 })();
