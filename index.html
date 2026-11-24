@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>火锅局</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,12 +12,14 @@
   <canvas id="cv"></canvas>
 
   <header id="hud" class="hud">
-    <div class="pill scene"><b id="hud-scene">兄弟局</b><small id="hud-sub">九宫格 · 川渝</small></div>
+    <div class="pill scene"><b id="hud-scene">朋友局</b><small id="hud-sub">九宫格 · 川渝</small></div>
     <div id="timer" class="timer">
       <svg viewBox="0 0 40 40"><circle class="track" cx="20" cy="20" r="18"/><circle id="ring" class="ring" cx="20" cy="20" r="18"/></svg>
-      <span id="time">1:30</span>
+      <span id="time">1:00</span>
     </div>
-    <div class="pill score"><span id="score">0</span><small>分</small></div>
+    <div class="pill score"><span id="score">0</span><small>分</small>
+      <div id="rec" class="rec hidden"><i><b id="rec-bar"></b></i><small id="rec-text"></small></div>
+    </div>
   </header>
   <div id="combo" class="combo"></div>
   <div id="goal" class="goal"></div>
@@ -48,18 +51,21 @@
 
   <section id="intro" class="overlay hidden">
     <div class="card intro">
-      <small>第一次玩</small>
+      <small id="i-sub">第一次玩</small>
       <h2 id="i-title"></h2>
       <ul id="i-list" class="i-list"></ul>
       <button id="btn-intro" class="cta small" type="button">明白了</button>
     </div>
   </section>
 
+  <!-- 首屏：JS 还没跑起来时就能看到标题和准备状态 -->
   <section id="loading" class="overlay">
     <div class="card">
       <h1>火锅局</h1>
-      <p id="loadtext" class="sub">正在烧锅底…</p>
+      <p class="sub">涮得好是技术，吃得好是情商</p>
+      <p id="loadtext" class="sub" role="status">正在烧锅底…若长时间没反应，请退出后重新打开</p>
       <div class="bar"><i id="loadbar"></i></div>
+      <button id="btn-retry" class="cta small hidden" type="button">重试</button>
     </div>
   </section>
 
@@ -72,11 +78,26 @@
       </div>
       <h1 class="logo">火锅局</h1>
       <p class="sub">涮得好是技术，吃得好是情商</p>
+      <div id="h-warn" class="warn hidden">当前小红书版本存不了进度，升级到最新版后再玩会自动保存</div>
+
+      <button id="diary" class="diary" type="button">
+        <span class="diary-head"><b>火锅日记</b><small id="dy-n">第 1 天</small><em id="dy-cap" class="bonus hidden">今天写满了</em></span>
+        <span id="dy-text" class="dy-text"></span>
+        <span class="diary-bar"><i id="dy-bar"></i></span>
+        <span id="dy-go" class="dy-go">开吃</span>
+      </button>
 
       <div id="daily" class="daily">
         <div class="daily-head"><b>今日火锅</b><small id="d-date"></small><em id="d-bonus" class="bonus">今日首局金币 ×2</em></div>
         <div id="d-menu" class="d-menu"></div>
+        <div id="d-grid" class="d-grid hidden"></div>
         <div class="daily-foot"><small id="d-best">所有人今天吃同一锅，比比谁分高</small><button id="btn-daily" class="cta small" type="button">吃今日这锅</button></div>
+        <div id="d-lock" class="lock hidden"></div>
+      </div>
+
+      <div id="modes" class="modes">
+        <button id="btn-night" class="mode-card" type="button"><b>饭局夜</b><small>一晚赶三场，饭局卡效果叠加</small><em id="m-night"></em></button>
+        <button id="btn-rush" class="mode-card" type="button"><b>翻台挑战</b><small>没有倒计时，离席 3 次结束</small><em id="m-rush"></em></button>
       </div>
 
       <div id="scenes" class="scenes"></div>
@@ -84,6 +105,10 @@
       <div class="home-nav">
         <button id="btn-shop" class="ghost" type="button">菜单 · 解锁</button>
         <button id="btn-codex" class="ghost" type="button">图鉴 · 成就</button>
+      </div>
+      <div class="home-nav">
+        <button id="btn-code" class="ghost" type="button">输入挑战码</button>
+        <button id="btn-rank" class="ghost hidden" type="button">排行榜</button>
       </div>
       <button id="btn-howto" class="link" type="button">怎么玩</button>
       <div id="h-ver" class="ver"></div>
@@ -101,16 +126,17 @@
         <p><em class="k">点单</em>同桌头顶冒出想吃的菜，涮好了<b>按住拖到 TA 头像上</b>；点一下是自己吃</p>
         <p><em class="k">护食</em>同桌的筷子伸过来，<b>点它</b>挡开</p>
         <p><em class="k">讲话</em>有人讲话时<b>别动筷子</b>；有人举杯要<b>干杯</b></p>
-        <p><em class="k">饭局卡</em>每局开吃前翻一张卡：老王失恋、停电、AA……规则会变，完成卡上目标拿<b>第三颗星</b></p>
+        <p><em class="k">新菜</em>每道解锁的菜都有<b>自己的吃法</b>：嫩牛肉要抖散、鹅肠别提、腰片要大火、牛肉丸会爆汁……第一次下锅会提示</p>
+        <p><em class="k">火锅日记</em>每天学一样新本事，拿到 <b>2 颗星</b>就翻到下一天，一天最多翻 3 天</p>
+        <p><em class="k">饭局卡</em>每局开吃前<b>三选一</b>：规则会变，完成卡上目标拿<b>第三颗星</b></p>
+        <p><em class="k">饭局夜</em>一晚赶三场：朋友局→团建→家宴，选过的卡<b>一路叠加</b></p>
+        <p><em class="k">翻台</em>没有倒计时，同桌等不到菜会<b>离席</b>，走 3 个就结束</p>
         <p><em class="k">人格</em>你怎么吃、怎么照顾人，决定你是<b>哪种饭搭子</b>；图鉴里有线索</p>
-        <p><em class="k">朋友圈</em>对同桌越好，羁绊越深，TA 饭后会发朋友圈</p>
         <p><em class="k">得分</em>连续完美有连击；关掉火候提示得分 <b>×1.2</b></p>
         <p><em class="k">别贪多</em>一格最多 <b>2 块</b>；菜下太多汤会不滚</p>
         <p><em class="k">换着吃</em>同一道菜一局吃 <b>3 块</b>以内满分，再吃就腻了；<b>越贵的菜分越高</b></p>
-        <p><em class="k">荤素搭配</em>一局荤素各吃 3 块以上，结算 <b>+80</b></p>
-        <p><em class="k">鸳鸯锅</em>红汤熟得快；清汤熟得慢，但得分 <b>×1.3</b></p>
-        <p><em class="k">金币</em>得分换金币，去「菜单 · 解锁」买新菜</p>
-        <p><em class="k">今日火锅</em>每天换一桌人，所有人吃同一锅，比谁分高</p>
+        <p><em class="k">今日火锅</em>所有人吃同一锅，只有第一局算成绩；两星以上送<b>补签卡</b>，断一天打卡也能续上</p>
+        <p><em class="k">挑战码</em>结算卡上的 9 位码发给朋友，TA 输入就能打<b>同一锅</b>跟你比分</p>
       </div>
       <button id="btn-tutorial" class="cta small" type="button">重看新手教学</button>
       <button class="ghost close" data-close="howto" type="button">返回</button>
@@ -120,7 +146,7 @@
   <section id="shop" class="overlay panel hidden">
     <div class="sheet">
       <div class="sheet-head"><b>菜单 · 解锁</b><span class="chip coin-chip"><i class="coin"></i><b id="s-coins">0</b></span></div>
-      <p class="sheet-sub">点菜品选择带不带上桌（<b id="s-count">0</b> / 8），荤素都带上有加分。每局得分换金币，攒够了解锁新菜和锅底。</p>
+      <p class="sheet-sub">点菜品选择带不带上桌（<b id="s-count">0</b> / 8），荤素都带上有加分。每道解锁的菜都有<b>自己的吃法</b>。</p>
       <div id="s-list" class="s-list"></div>
       <button class="ghost close" data-close="shop" type="button">返回</button>
     </div>
@@ -142,11 +168,61 @@
   <section id="flip" class="overlay hidden">
     <div class="flip-card" id="flip-card">
       <div class="flip-art" id="flip-art"></div>
-      <small>本局饭局卡</small>
+      <small id="flip-sub">本局饭局卡</small>
       <b id="flip-name"></b>
       <p id="flip-rule"></p>
       <p class="flip-goal">★★★ 目标：<span id="flip-goal"></span></p>
       <em>点一下开吃</em>
+    </div>
+  </section>
+
+  <section id="choose" class="overlay hidden">
+    <div class="choose">
+      <small id="ch-sub">本局饭局卡 · 挑一张</small>
+      <div id="ch-stack" class="ch-stack hidden"></div>
+      <div id="ch-list" class="ch-list"></div>
+    </div>
+  </section>
+
+  <section id="night" class="overlay hidden">
+    <div class="card night-card">
+      <small id="nt-sub">饭局夜</small>
+      <h2 id="nt-score"></h2>
+      <p id="nt-text" class="sub"></p>
+      <div id="nt-tables" class="nt-tables"></div>
+      <button id="btn-next-table" class="cta small" type="button">去下一桌</button>
+      <button id="btn-night-quit" class="link" type="button">不吃了，回首页</button>
+    </div>
+  </section>
+
+  <section id="codebox" class="overlay panel hidden">
+    <div class="sheet">
+      <div class="sheet-head"><b id="cb-title">挑战码</b></div>
+      <div id="cb-show" class="hidden">
+        <div id="cb-code" class="cb-code"></div>
+        <p id="cb-text" class="sheet-sub"></p>
+        <button id="cb-post" class="cta" type="button">发笔记邀请挑战</button>
+      </div>
+      <div id="cb-input" class="hidden">
+        <p class="sheet-sub">朋友结算卡底部印着 9 位挑战码，输进来就能打<b>同一锅</b>，菜单、锅底、饭局卡、事件都一样</p>
+        <input id="cb-field" class="cb-field" type="text" maxlength="11" placeholder="例如 3K9-QW2-7ZX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <p id="cb-err" class="cb-err"></p>
+        <button id="cb-go" class="cta" type="button">开吃这一锅</button>
+      </div>
+      <div id="cb-make" class="hidden">
+        <p class="sheet-sub">这局是你自选的菜单，朋友没法打同一锅。<b>出一道挑战题</b>：用随机菜单在同一个剧本吃一局，吃完就生成挑战码。</p>
+        <button id="cb-start" class="cta" type="button">出一道挑战题</button>
+      </div>
+      <button id="cb-back" class="ghost close" type="button">返回</button>
+    </div>
+  </section>
+
+  <section id="rank" class="overlay panel hidden">
+    <div class="sheet">
+      <div class="sheet-head"><b>排行榜</b><span id="rk-fac" class="chip"></span></div>
+      <div class="tabs"><button class="tab on" data-rk="daily" type="button">今日火锅</button><button class="tab" data-rk="rush" type="button">翻台挑战</button><button class="tab" data-rk="fac" type="button">阵营赛</button></div>
+      <div id="rk-body" class="c-list"></div>
+      <button class="ghost close" data-close="rank" type="button">返回</button>
     </div>
   </section>
 
@@ -163,19 +239,32 @@
 
   <section id="result" class="overlay hidden">
     <div class="result-wrap">
+      <div class="r-top">
+        <small id="r-label"></small>
+        <div class="r-score"><b id="r-score">0</b><span>分</span></div>
+        <div id="r-rec" class="r-rec"></div>
+        <div id="r-stars" class="r-stars"></div>
+      </div>
+      <div id="r-vs" class="r-vs hidden"></div>
+      <button id="btn-again" class="cta again" type="button">再来一局</button>
+      <div id="r-day" class="r-day hidden"></div>
+      <button id="r-next" class="r-next hidden" type="button"><span id="r-next-text"></span><i><b id="r-next-bar"></b></i></button>
+      <div id="r-loss" class="r-loss hidden"></div>
+      <div class="r-row">
+        <button id="btn-post" class="ghost hot" type="button">发笔记</button>
+        <button id="btn-save" class="ghost" type="button">保存</button>
+        <button id="btn-challenge" class="ghost" type="button">挑战好友</button>
+        <button id="btn-home" class="ghost" type="button">首页</button>
+      </div>
       <img id="r-img" class="r-img" alt="饭局报告">
       <p id="save-tip" class="save-tip"></p>
+      <div id="r-ai" class="r-ai hidden"></div>
       <div id="r-near" class="r-near hidden"></div>
       <div id="r-moments" class="r-moments"></div>
       <div id="rewards" class="rewards"></div>
-      <div class="r-actions">
-        <button id="btn-save" class="cta" type="button">保存饭局报告</button>
-        <div class="r-row">
-          <button id="btn-share" class="ghost hidden" type="button">分享给好友</button>
-          <button id="btn-pair" class="ghost" type="button">测饭搭子</button>
-          <button id="btn-again" class="ghost" type="button">再来一局</button>
-          <button id="btn-home" class="ghost" type="button">回首页</button>
-        </div>
+      <div class="r-row">
+        <button id="btn-share" class="ghost hidden" type="button">私信给好友</button>
+        <button id="btn-pair" class="ghost" type="button">测饭搭子</button>
       </div>
     </div>
   </section>
@@ -185,10 +274,11 @@
 <script src="js/fx.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/game.js"></script>
-  <script src="js/table.js"></script>
-  <script src="js/cards.js"></script>
-  <script src="js/moments.js"></script>
+<script src="js/table.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/moments.js"></script>
 <script src="js/meta.js"></script>
+<script src="js/progress.js"></script>
 <script src="js/card.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/main.js"></script>

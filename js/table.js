@@ -23,14 +23,20 @@ var HP = window.HP = window.HP || {};
 
   G.initDiners = function () {
     var S = this.scene, self = this;
-    var K = this.mode === 'play' ? this.card : null;
+    var Ks = this.mode === 'play' ? this.cards : [];
+    // 几张卡叠加时合并：换人、点单偏好、害羞
+    var swap = {}, prefsBy = {}, shy = [];
+    Ks.forEach(function (K) {
+      if (K.swap) for (var a in K.swap) if (K.swap.hasOwnProperty(a)) swap[a] = K.swap[a];
+      if (K.prefs) for (var b in K.prefs) if (K.prefs.hasOwnProperty(b)) prefsBy[b] = K.prefs[b];
+      if (K.shy) shy = shy.concat(K.shy);
+    });
     this.diners = (S.diners || []).map(function (p, i) {
-      var id = (K && K.swap && K.swap[p[0]]) || p[0], C = HP.DINERS[id], swapped = id !== p[0];
-      var prefs = K && K.prefs && K.prefs[id];
-      if (prefs) C = Object.assign({}, C, { prefs: prefs });
-      return { id: id, cfg: C, seat: p[1], name: (!swapped && S.names && S.names[id]) || C.name, shy: !!(K && K.shy && K.shy.indexOf(id) >= 0),
+      var id = swap[p[0]] || p[0], C = HP.DINERS[id], swapped = id !== p[0];
+      if (prefsBy[id]) C = Object.assign({}, C, { prefs: prefsBy[id] });
+      return { id: id, cfg: C, seat: p[1], name: (!swapped && S.names && S.names[id]) || C.name, shy: shy.indexOf(id) >= 0,
                order: null, cool: HP.ORDER_FIRST + i * 2.2, mood: 'wait', moodT: 0, say: null, sayT: 0,
-               fed: 0, aff: 0, bounce: 0 };
+               fed: 0, aff: 0, bounce: 0, away: 0, rng: self.streams.ord(i) };
     });
     this.layoutSeats();
   };
@@ -38,7 +44,8 @@ var HP = window.HP = window.HP || {};
   /* 这一局托盘上有哪些菜（点单只会点托盘上有的） */
   G.orderPool = function (d) {
     var menu = this.menu || HP.FOOD_ORDER, self = this;
-    var busy = this.diners.map(function (x) { return x.order && x.order.type; });
+    // 有种子的局（每日一锅 / 挑战码）不避开别人正在点的菜：这样每个人点什么只由种子决定，和玩家快慢无关
+    var busy = this.seed ? [] : this.diners.map(function (x) { return x.order && x.order.type; });
     var ok = function (id) { return id !== 'jianshouqing' && busy.indexOf(id) < 0 && menu.indexOf(id) >= 0; };
     var pool = d.cfg.prefs.filter(ok);
     if (!pool.length) pool = menu.filter(ok);
@@ -46,12 +53,14 @@ var HP = window.HP = window.HP || {};
   };
   G.newOrder = function (d) {
     var pool = this.orderPool(d); if (!pool.length) { d.cool = 2; return; }
-    var type = pool[Math.floor(this.rng() * pool.length)], F = HP.FOODS[type];
-    var auth = !!F.dips && this.rng() < d.cfg.auth;
-    var ttl = clamp(F.a * 1.2 + (F.mode === 'swish' ? 11 : 12), 13, 30);
+    // 点单走每个人自己的随机数流：每日一锅里同一个人点的菜顺序人人一样
+    var R = d.rng || this.rng;
+    var type = pool[Math.floor(R() * pool.length)], F = HP.FOODS[type], ar = R();   // 每单固定取两次随机数
+    var auth = !!F.authentic && ar < d.cfg.auth;
+    var ttl = clamp(F.a * 1.2 + (F.mode === 'swish' ? 11 : 12), 13, 30) * (this.phase().ttlMul || 1);
     d.order = { type: type, auth: auth, t: 0, ttl: ttl };
     d.mood = 'wait'; d.bounce = 1;
-    var line = pick(d.cfg.order, this.rng).replace(/\{d\}/g, F.name);
+    var line = pick(d.cfg.order, this.streams.talk).replace(/\{d\}/g, F.name);
     this.dinerSay(d, line + (auth ? '（要七上八下）' : ''), 2.2);
     this.stats.orders++;
     if (this.audio) this.audio.pop(3);
@@ -60,7 +69,8 @@ var HP = window.HP = window.HP || {};
   G.dinerSay = function (d, text, dur) { d.say = text; d.sayT = dur || 1.8; };
   G.setMood = function (d, mood, dur) { d.mood = mood; d.moodT = dur || 1.6; d.bounce = 1; };
 
-  G.updateDiners = function (dt) {
+  /* tickOnly：教学里只更新表情和说话气泡，不自己点单、点的单也不会超时 */
+  G.updateDiners = function (dt, tickOnly) {
     if (!this.diners || !this.diners.length) return;
     var ph = this.phase(), active = 0, i, d, watching = this.event && this.event.type === 'proposal';
     for (i = 0; i < this.diners.length; i++) if (this.diners[i].order) active++;
@@ -69,6 +79,8 @@ var HP = window.HP = window.HP || {};
       d.bounce = Math.max(0, d.bounce - dt * 3);
       if (d.sayT > 0) d.sayT -= dt;
       if (d.moodT > 0) { d.moodT -= dt; if (d.moodT <= 0) d.mood = 'wait'; }
+      if (tickOnly) { if (d.order) d.order.t = Math.min(d.order.t + dt, d.order.ttl * 0.5); continue; }
+      if (d.away > 0) { d.away -= dt; if (d.away <= 0) { d.away = 0; this.dinerSay(d, '我又回来了', 1.4); d.bounce = 1; } continue; }
       if (d.order) {
         if (!watching) d.order.t += dt;
         if (d.order.t >= d.order.ttl) this.missOrder(d);
@@ -81,9 +93,17 @@ var HP = window.HP = window.HP || {};
   G.missOrder = function (d) {
     var s = this.stats, F = HP.FOODS[d.order.type], quiet = d.cfg.quiet;
     s.orderMiss++; d.aff--; if (!quiet) s.score = Math.max(0, s.score - 15);
-    d.order = null; d.cool = this.rr(3, 5);
+    this.lose('order', (quiet ? 0 : 15) + Math.round(140 * HP.ptsOf(d.order.type)));
+    d.order = null; d.cool = this.rrOf(d.rng || this.rng, 3, 5);
     this.setMood(d, 'angry', 2.2);
-    this.dinerSay(d, pick(d.cfg.miss, this.rng), 2.2);
+    if (this.endless) {
+      // 翻台挑战：等不到菜就离席，离席 3 次结束
+      s.strikes++; d.away = 6; this.calm = 0;
+      this.dinerSay(d, '不等了，我先走了', 2.2);
+      this.fx.text(this.W / 2, this.potY + this.potSize * 0.18, d.name + '离席了 ✗ ' + s.strikes + ' / ' + HP.RUSH.strikes, '#ff6b5a', 20 * Math.max(0.8, this.unit));
+      if (this.hooks.haptic) this.hooks.haptic('event');
+      if (this.hooks.onStrike) this.hooks.onStrike(s.strikes);
+    } else this.dinerSay(d, pick(d.cfg.miss, this.streams.talk), 2.2);
     this.fx.text(d.x, d.y + d.r * 1.6, '没等到' + F.name + (quiet ? '' : ' -15'), '#ff9b7a', 14 * Math.max(0.8, this.unit));
     if (this.hooks.onScore) this.hooks.onScore(s, null);
   };
@@ -93,6 +113,7 @@ var HP = window.HP = window.HP || {};
     var best = null, bd = 1e9;
     for (var i = 0; i < (this.diners || []).length; i++) {
       var d = this.diners[i], r = d.r * 1.7;
+      if (d.away > 0) continue;
       [[x, y], [x2, y2], [x2, y2 + d.r]].forEach(function (p) {
         if (p[0] == null) return;
         var dd = Math.min(Math.hypot(p[0] - d.x, p[1] - d.y), Math.hypot(p[0] - d.bx, p[1] - d.by) * 1.2);
@@ -106,10 +127,11 @@ var HP = window.HP = window.HP || {};
   G.serve = function (f, d, x, y) {
     var r = this.rate(f), s = this.stats, F = HP.FOODS[f.type], big = Math.max(0.8, this.unit);
     var o = d.order, match = o && o.type === f.type, gain, good = r.kind === 'perfect' || r.kind === 'ok';
-    var cid = this.mode === 'play' && this.card ? this.card.id : null;
     this.speechBreak(x, y);
+    this.logOutcome(r.kind === 'perfect' ? 'P' : r.kind === 'ok' ? 'O' : r.kind === 'raw' ? 'R' : 'V');
+    this.lossOf(r, f.type);
     // 减肥的闺蜜：给她夹肉，嘴上说不要……
-    if (cid === 'diet' && d.id === 'friend' && !F.veg && good) {
+    if (this.has('diet') && d.id === 'friend' && !F.veg && good) {
       s.dietCheat++; d.aff += 1; s.served++; d.fed++; s.servedTo[d.id] = (s.servedTo[d.id] || 0) + 1; s.servedExtra++;
       if (r.kind === 'perfect') { s.perfect++; s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1; }
       s.score += 30; this.setMood(d, 'happy', 1.8); this.dinerSay(d, '不要不要……（吃了）', 2);
@@ -126,36 +148,38 @@ var HP = window.HP = window.HP || {};
         if (!authMiss) { s.combo++; gain = Math.round(gain * Math.min(3, 1 + (s.combo - 1) * 0.5)); }
         s.ordersDone++; s.ordersPerfect++; d.aff += 2;
         this.setMood(d, authMiss ? 'wait' : 'happy', 2);
-        this.dinerSay(d, authMiss ? '没七上八下啊……' : pick(d.cfg.happy, this.rng), 2);
+        this.dinerSay(d, authMiss ? '没七上八下啊……' : pick(d.cfg.happy, this.streams.talk), 2);
       } else if (r.kind === 'ok') {
         gain = 50; s.ordersDone++; d.aff += 1; s.combo = 0;
-        this.setMood(d, 'happy', 1.4); this.dinerSay(d, pick(d.cfg.meh, this.rng), 1.8);
+        this.setMood(d, 'happy', 1.4); this.dinerSay(d, pick(d.cfg.meh, this.streams.talk), 1.8);
       } else {
         gain = -20; s.servedBad++; d.aff -= 1; s.combo = 0;
-        this.setMood(d, 'angry', 2); this.dinerSay(d, pick(d.cfg.bad, this.rng), 2);
+        this.setMood(d, 'angry', 2); this.dinerSay(d, pick(d.cfg.bad, this.streams.talk), 2);
       }
-      d.order = null; d.cool = this.rr(this.phase().order[0], this.phase().order[1]);
+      d.order = null; d.cool = this.rrOf(d.rng || this.rng, this.phase().order[0], this.phase().order[1]);
     } else {
       // 没点这个也照收：好吃的话关系变好一点
       gain = r.kind === 'perfect' ? 30 : r.kind === 'ok' ? 10 : -10;
-      if (good) { d.aff += 1; this.setMood(d, 'happy', 1.2); this.dinerSay(d, pick(d.cfg.thanks, this.rng), 1.6); }
-      else { s.servedBad++; d.aff -= 1; this.setMood(d, 'angry', 1.6); this.dinerSay(d, pick(d.cfg.bad, this.rng), 1.8); }
+      if (good) { d.aff += 1; this.setMood(d, 'happy', 1.2); this.dinerSay(d, pick(d.cfg.thanks, this.streams.talk), 1.6); }
+      else { s.servedBad++; d.aff -= 1; this.setMood(d, 'angry', 1.6); this.dinerSay(d, pick(d.cfg.bad, this.streams.talk), 1.8); }
       s.servedExtra++;
     }
-    // 饭局卡：目标计数、分数加成
-    if (cid === 'heartbreak' && d.id === 'laowang') { if (gain > 0) gain = Math.round(gain * 1.5); if (f.type === 'maodu' && good) s.cardGoal++; }
-    if (cid === 'diet' && d.id === 'friend' && match && good) s.cardGoal++;
-    if (cid === 'newbie' && d.id === 'newbie' && good) s.cardGoal++;
-    if (cid === 'birthday' && this.bd === d && good) s.cardGoal++;
-    if (cid === 'gfdate' && d.id === 'gf' && match && r.kind === 'perfect') s.cardGoal++;
-    if (cid === 'aa' && F.price >= 20 && gain > 0) gain *= 2;
-    if (cid === 'freemaodu' && r.authentic && gain > 0) gain *= 2;
+    // 饭局卡：目标计数、分数加成（饭局夜里几张卡同时生效）
+    if (this.has('heartbreak') && d.id === 'laowang') { if (gain > 0) gain = Math.round(gain * 1.5); if (f.type === 'maodu' && good) this.goal('heartbreak'); }
+    if (this.has('diet') && d.id === 'friend' && match && good) this.goal('diet');
+    if (this.has('newbie') && d.id === 'newbie' && good) this.goal('newbie');
+    if (this.has('birthday') && this.bd === d && good) this.goal('birthday');
+    if (this.has('gfdate') && d.id === 'gf' && match && r.kind === 'perfect') this.goal('gfdate');
+    if (this.has('aa') && F.price >= 20 && gain > 0) gain *= 2;
+    if (this.has('freemaodu') && r.authentic && gain > 0) gain *= 2;
+    // 贡菜：夹给同桌分数翻倍
+    if (F.special === 'share' && good && gain > 0) { gain *= 2; s.shared++; this.fx.text(d.x, d.y + d.r * 2.3, '分给大家 ×2', '#ffd35c', 14 * big); }
     if (r.authentic) s.authentic++;
     if (r.kind === 'perfect') { s.perfect++; s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1; }
     if (r.kind === 'raw') s.rawServed++;
     if (r.kind === 'over') s.over++;
     if (!this.hintsOn() && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
-    if (this.waitBoss > 0 && this.mode === 'play') { gain -= 30; s.rude++; }
+    if (this.waitBoss > 0 && this.mode === 'play') { gain -= 30; s.rude++; this.lose('rude', 30); }
     s.served++; d.fed++;
     s.servedTo[d.id] = (s.servedTo[d.id] || 0) + 1;
     if (F.special === 'trip' && r.kind === 'raw') { s.tripServed++; this.dinerSay(d, '我怎么看见小人了……', 2.4); }
@@ -185,6 +209,7 @@ var HP = window.HP = window.HP || {};
     this.diners.forEach(function (d) {
       var r = d.r * (1 + d.bounce * 0.08 * Math.sin(d.bounce * 12));
       ctx.save();
+      if (d.away > 0) ctx.globalAlpha = 0.3;
       // 夹着菜时：每个人身后亮一圈，指在谁身上谁更亮
       if (carrying) {
         ctx.fillStyle = d === hover ? 'rgba(255,214,92,0.55)' : 'rgba(255,214,92,0.18)';
@@ -206,6 +231,7 @@ var HP = window.HP = window.HP || {};
       rr(ctx, d.x - nw / 2, d.y + r * 0.92, nw, 16 * u, 8 * u); ctx.fill();
       ctx.fillStyle = '#ffe9cf'; ctx.fillText(d.name, d.x, d.y + r * 0.92 + 8.5 * u);
       ctx.restore();
+      if (d.away > 0) self.drawTag(ctx, d.x, d.y, '离席 ' + Math.ceil(d.away) + 's', '#ff8a6a');
       if (d.order) self.drawOrder(ctx, d);
       if (d.say && d.sayT > 0) self.drawSay(ctx, d);
     });

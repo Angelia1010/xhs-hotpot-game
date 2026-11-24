@@ -49,15 +49,30 @@ var HP = window.HP = window.HP || {};
     ]
   };
 
+  /* 火锅日记过了一天：那天的同桌发一条剧情朋友圈 */
+  HP.dayStory = function (p, n) {
+    var D = HP.dayCfg(n), st = D && D.story;
+    if (!st) return null;
+    var m = { who: st.who, name: HP.DINERS[st.who] ? HP.DINERS[st.who].name : '', t: st.t, img: st.img || null,
+              day: HP.dayKey(), scene: '火锅日记 · 第 ' + n + ' 天', likes: [], story: n };
+    p.moments = p.moments || [];
+    p.moments.unshift(m);
+    if (p.moments.length > 50) p.moments.length = 50;
+    return m;
+  };
+
   /* 普通饭后朋友圈：按这局发生的事挑一条 */
   function roundCandidates(s, diners) {
     var C = [], byId = {};
     diners.forEach(function (d) { byId[d.id] = d; });
     function add(id, t, w, img) { if (byId[id]) C.push({ who: id, t: t, w: w, img: img }); }
     var card = s.card;
-    if (card === 'heartbreak') add('laowang', s.cardGoal >= 3 ? '谢谢兄弟陪我，毛肚管够，心不痛了' : '失恋了，连毛肚都不香了……', 5);
+    if (card === 'heartbreak') add('laowang', HP.cg(s, 'heartbreak') >= 3 ? '谢谢兄弟陪我，毛肚管够，心不痛了' : '失恋了，连毛肚都不香了……', 5);
     if (card === 'diet') add('friend', s.dietCheat ? '说好的减肥呢……都怪 TA 一直给我夹肉' : '减肥餐也可以很快乐！', 5, 'moment_friend_1');
-    if (card === 'newbie') add('newbie', s.cardGoal >= 2 ? '入职第一顿饭，前辈一直给我夹菜，好感动' : '入职第一顿团建，有点紧张……', 6, 'moment_newbie_1');
+    if (card === 'newbie') add('newbie', HP.cg(s, 'newbie') >= 2 ? '入职第一顿饭，前辈一直给我夹菜，好感动' : '入职第一顿团建，有点紧张……', 6, 'moment_newbie_1');
+    if (s.endless && (s.time || 0) >= 90) add(diners[1] ? diners[1].id : diners[0] && diners[0].id, '一桌人轮番点单，硬是撑了 ' + Math.floor(s.time / 60) + ' 分多钟没翻车', 5);
+    if (s.burst) add('laowang', '牛肉丸在锅里炸了，溅了我一脸红油', 4);
+    if (s.shared >= 2) add('friend', '有人把贡菜都分给我们了，好贴心', 3);
     if (card === 'birthday' && s.bdId) add(s.bdId, s.songBreak ? '生日歌唱到一半有人在偷吃，笑死' : '今年生日最开心的一天，谢谢大家', 6);
     if (card === 'proposal') add(diners[0] && diners[0].id, '隔壁求婚成功了！而某人全程在干饭', 4);
     if (card === 'aa') add('laowang', 'AA 制吃出了自助餐的感觉，有人很会算账', 4);

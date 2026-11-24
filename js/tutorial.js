@@ -13,10 +13,19 @@ var HP = window.HP = window.HP || {};
     return { x: p.x, y: p.y + 54 * g.unit };   // 菜显示在手指上方 54
   };
 
-  Tutorial.prototype.start = function () {
+  /* list：这次要教哪几步（火锅日记每天只教当天的新机制）；不传就是完整教学
+     done：最后一步「学会了」的标题和文字 */
+  Tutorial.ALL = [0, 1, 2, 3, 4, 5, 6];
+  Tutorial.prototype.start = function (list, done) {
     var g = this.game;
-    g.reset(); g.mode = 'tutorial'; g.hints = true; g.tutorialHeat = 1; g.running = true;
-    this.go(0);
+    this.list = (list && list.length ? list : Tutorial.ALL).slice(); this.pos = 0; this.done = done || null;
+    g.mode = 'tutorial'; g.reset(); g.hints = true; g.tutorialHeat = 1; g.running = true;
+    this.go(this.list[0]);
+  };
+  /* 当前这步学会了：去下一步，教完就是「学会了」 */
+  Tutorial.prototype.next = function () {
+    this.pos++;
+    this.go(this.pos < this.list.length ? this.list[this.pos] : 7);
   };
 
   Tutorial.prototype.later = function (ms, fn) {
@@ -83,7 +92,8 @@ var HP = window.HP = window.HP || {};
         } };
       },
       function () {
-        ui.say('学会了！', '一局 <b>60 秒</b>：同桌点的菜涮好了拖给 TA，自己也别饿着。吃完测你是<b>哪种饭搭子</b>', { button: '开吃' });
+        var D = self.done;
+        ui.say(D ? D.title : '学会了！', D ? D.text : '一局 <b>60 秒</b>：同桌点的菜涮好了拖给 TA，自己也别饿着。吃完测你是<b>哪种饭搭子</b>', { button: '开吃' });
       }
     ];
     STEPS[i]();
@@ -91,12 +101,12 @@ var HP = window.HP = window.HP || {};
 
   Tutorial.prototype.onAction = function (name, d) {
     var s = this.step;
-    if (s === 0 && name === 'holdEnter' && d.type === 'beef') this.go(1);
+    if (s === 0 && name === 'holdEnter' && d.type === 'beef') this.next();
     else if (s === 1 && name === 'holdRelease') {
       this.ui.say('第 1 步 · 涮', d.kind === 'perfect' ? '<b>漂亮！</b>就是这个火候' : d.kind === 'raw' ? '还生着呢，下次多涮一会儿' : '差不多就是这样，下次盯紧颜色');
-      this.later(1300, function () { this.go(2); });
+      this.later(1300, function () { this.next(); });
     }
-    else if ((s === 0 || s === 1) && name === 'holdCancel') this.go(0);
+    else if ((s === 0 || s === 1) && name === 'holdCancel') { this.pos = this.list.indexOf(0); this.go(0); }
     else if (s === 2 && name === 'holdEnter' && d.type === 'maodu') {
       var self = this, g = this.game;
       this.ui.say('第 2 步 · 七上八下', '手指<b>往上提、再放下</b>算一次，头顶会计数');
@@ -104,22 +114,22 @@ var HP = window.HP = window.HP || {};
     }
     else if (s === 2 && name === 'holdRelease' && d.type === 'maodu') {
       this.ui.say('第 2 步 · 七上八下', d.dips >= 7 && d.dips <= 8 ? '<b>正宗七上八下！</b>这块值 150 分' : '提放了 ' + d.dips + ' 次，7~8 次才算正宗');
-      this.later(1500, function () { this.go(3); });
+      this.later(1500, function () { this.next(); });
     }
-    else if (s === 3 && name === 'drop') this.go(4);
+    else if (s === 3 && name === 'drop') this.next();
     else if (s === 4 && name === 'pick') {
       this.ui.say('第 3 步 · 煮', d.kind === 'perfect' ? '<b>完美！</b>煮的菜就这么捞' : '捞起来了！下次等圈变绿再点');
-      this.later(1300, function () { this.go(5); });
+      this.later(1300, function () { this.next(); });
     }
     else if (s === 5 && (name === 'block' || name === 'stolen')) {
       this.game.ghost = null;
       this.ui.say('第 4 步 · 护食', name === 'block' ? '<b>挡住了！</b>正式开吃时同桌会更快' : '被抢走了……正式开吃时手要更快');
-      this.later(1500, function () { this.go(6); });
+      this.later(1500, function () { this.next(); });
     }
     else if (s === 6 && name === 'serve') {
       this.game.ghost = null;
       this.ui.say('第 5 步 · 照顾同桌', d.match && d.kind === 'perfect' ? '<b>送达！</b>点的菜涮得好，分最高' : '夹过去了！点的菜火候好，分更高');
-      this.later(1500, function () { this.go(7); });
+      this.later(1500, function () { this.next(); });
     }
     else if (s === 6 && name === 'pick') {
       this.ui.say('第 5 步 · 照顾同桌', '哈哈你自己吃掉了，再试一次：<b>按住不放，拖到闺蜜头像上</b>');

@@ -28,7 +28,8 @@
       var orderFor = function (type) { return (g.diners || []).filter(function (d) { return d.order && d.order.type === type; })[0]; };
       var speechHold = false;
       var npcDecided = {}, toastDecided = null;
-      while (g.running && frame < 30 * 100) {
+      var maxF = HP.SCENES[rd.scene].endless ? 30 * 400 : 30 * 100;
+      while (g.running && frame < maxF) {
         frame++;
         cool -= dt;
         // 讲话时：大概率停手
@@ -38,16 +39,22 @@
         if (g.hold && holdPlan) {
           holdPlan.t += dt;
           var h = g.hold;
+          var HF = HP.FOODS[h.type];
           if (!h.entered) { var tp = g.toScreen(holdPlan.nx, holdPlan.ny); g.dragMove(tp.x, tp.y + 54 * u); }
-          else if (HP.FOODS[h.type].dips) {
-            // 七上八下：每 0.4 秒换一次方向
+          else if (HF.dips) {
+            // 七上八下 / 三上三下：每 0.4 秒换一次方向
             var phase = Math.floor(holdPlan.t / 0.4) % 2, base = g.toScreen(holdPlan.nx, holdPlan.ny);
-            var wantDips = rd.skill === 'good' ? 7 + (Math.random() < 0.5 ? 1 : 0) : Math.round(R(3, 10));
-            holdPlan.want = holdPlan.want || wantDips;
+            var lo = HF.dips[0], wantDips = rd.skill === 'good' ? lo + (Math.random() < 0.5 ? 1 : 0) : Math.round(R(lo - 3, lo + 3));
+            holdPlan.want = holdPlan.want || Math.max(0, wantDips);
             if (h.dips < holdPlan.want) g.dragMove(base.x, base.y + 54 * u - (phase ? 45 * u : 0));
             else g.dragMove(base.x, base.y + 54 * u);
+          } else if (HF.special === 'shake') {
+            // 嫩牛肉：左右抖（好手抖够，差手看运气）
+            var ph2 = Math.floor(holdPlan.t / 0.3) % 2, b2 = g.toScreen(holdPlan.nx, holdPlan.ny);
+            if (holdPlan.shake == null) holdPlan.shake = Math.random() < sk.focus;
+            g.dragMove(b2.x + (holdPlan.shake && ph2 ? 30 * u : 0), b2.y + 54 * u);
           }
-          if (h.entered && h.d >= holdPlan.target && (!HP.FOODS[h.type].dips || h.dips >= (holdPlan.want || 0) || holdPlan.t > 9)) {
+          if (h.entered && h.d >= holdPlan.target && (!HF.dips || h.dips >= (holdPlan.want || 0) || holdPlan.t > 9)) {
             var od = orderFor(h.type) || (rd.style === 'carer' && g.diners && g.diners.length ? g.diners[Math.floor(Math.random() * g.diners.length)] : null);
             if (od && Math.random() < sk.serve) g.dragMove(od.x, od.y + 10);
             g.dragEnd(); holdPlan = null; cool = sk.think;
@@ -86,7 +93,8 @@
           var want = (g.diners || []).filter(function (d) { return d.order && !g.foods.some(function (f) { return f.state === 'in' && f.type === d.order.type; }); });
           if (want.length && Math.random() < sk.focus) type = want[0].order.type;
           var F = HP.FOODS[type];
-          var cell = Math.floor(Math.random() * g.zones.length), sp = g.randomSoupPoint(cell, 0.03), s = g.toScreen(sp.nx, sp.ny);
+          // 腰片要大火：会玩的人往火最大的格里放
+          var cell = F.special === 'hot' && Math.random() < sk.focus ? g.pot.center[0] : Math.floor(Math.random() * g.zones.length), sp = g.randomSoupPoint(cell, 0.03), s = g.toScreen(sp.nx, sp.ny);
           g.dragStart(type, s.x, s.y + 200);
           if (F.mode === 'swish') { holdPlan = { nx: sp.nx, ny: sp.ny, t: 0, target: target(type, sk) }; }
           else {
@@ -107,7 +115,7 @@
         stolen: s.stolen, blocked: s.blocked, served: s.served, toastOk: s.toastOk, toastMiss: s.toastMiss, authentic: s.authentic,
         veg: s.veg, meat: s.meat, balanced: s.balanced, trip: s.trip, frames: frame, ended: !g.running, maxFx: maxFx, maxFoods: maxFoods, nan: nan,
         persona: HP.persona(s).name, perfectBy: s.perfectBy, pickedBy: s.pickedBy, self: s.self, orders: s.orders, ordersDone: s.ordersDone, orderMiss: s.orderMiss,
-        speechBreak: s.speechBreak, style: rd.style || '', card: rd.card || '', stars: HP.starsOf(s, card).filter(Boolean).length, goal: (HP.cardProgress(card, s) || {}).done || false });
+        speechBreak: s.speechBreak, style: rd.style || '', card: rd.card || '', time: s.time || 0, strikes: s.strikes, burst: s.burst, loss: s.loss, stars: HP.starsOf(s, card).filter(Boolean).length, goal: (HP.cardProgress(card, s) || {}).done || false });
     } catch (e) { errors.push(rd.skill + '/' + rd.scene + '/' + rd.pot + ': ' + e.message + ' @ ' + (e.stack || '').split('\n')[1]); g.running = false; g.hold = null; g.drag = null; }
   });
   g.running = false; g.hooks.onEnd = savedEnd;

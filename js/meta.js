@@ -57,7 +57,9 @@ var HP = window.HP = window.HP || {};
       loadout: null,
       totals: { perfect: 0, authentic: 0, blocked: 0, stolen: 0, served: 0, toastOk: 0, eaten: 0, raw: 0 },
       perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0, seen: {}, pots: ['jiugong'], pot: 'jiugong',
-      stars: {}, cardStars: {}, bond: {}, moments: [], bondSeen: {}
+      stars: {}, cardStars: {}, bond: {}, moments: [], bondSeen: {},
+      // 1.3：火锅日记第几天、今天推进了几天、补签卡、阵营、AI 锐评今天用了几次
+      day: 1, dayLog: { date: 0, n: 0 }, freeze: 0, faction: null, ai: { date: 0, n: 0 }
     };
   };
   /* 合并旧存档，缺的字段补默认值 */
@@ -75,10 +77,26 @@ var HP = window.HP = window.HP || {};
     if (p.pots.indexOf(p.pot) < 0) p.pot = 'jiugong';
     // 计分规则改过（防刷分），旧规则下的最高分不再算数
     if ((old.rules || 1) < HP.RULES) { p.best = 0; p.bestBy = {}; p.daily.best = 0; p.rulesReset = true; }
+    // 1.3 之前的老玩家已经玩过全部机制：日记直接翻到最后一天
+    if (old.day == null) p.day = (old.games || 0) > 0 ? HP.DAY_MAX : 1;
+    p.day = Math.max(1, Math.min(HP.DAY_MAX, p.day | 0));
+    // 旧存档里饭局卡目标计数叫 cardGoal，不影响
     p.rules = HP.RULES;
-    p.v = 2;
+    p.v = 3;
     return p;
   };
+
+  /* ---------- 火锅日记：按天开放剧本、玩法和机制 ---------- */
+  HP.dayCfg = function (n) { return HP.DAYS[Math.max(1, Math.min(HP.DAY_MAX, n)) - 1]; };
+  /* 某个剧本 / 玩法在第几天开放 */
+  HP.unlockDay = function (key, kind) {
+    for (var i = 0; i < HP.DAYS.length; i++) if ((HP.DAYS[i][kind || 'scenes'] || []).indexOf(key) >= 0) return i + 1;
+    return 1;
+  };
+  HP.modeDay = { daily: 4, challenge: 4, night: HP.unlockDay('night', 'modes'), rush: HP.unlockDay('rush', 'modes'), cards: 6 };
+  HP.modeOpen = function (p, mode) { return (p.day || 1) >= (HP.modeDay[mode] || 1); };
+  /* 当天还关着的机制（之后的天数没有 rules，全开） */
+  HP.dayRules = function (p) { return (HP.dayCfg(p.day || 1).rules) || {}; };
 
   /* 上桌的菜：玩家自选，最多 8 道 */
   HP.getLoadout = function (p) {
@@ -111,10 +129,7 @@ var HP = window.HP = window.HP || {};
     p.coins -= P.unlock; p.pots.push(id); p.pot = id;
     return null;
   };
-  HP.sceneUnlocked = function (p, id) {
-    var S = HP.SCENES[id];
-    return !S.unlockGames || p.games >= S.unlockGames;
-  };
+  HP.sceneUnlocked = function (p, id) { return (p.day || 1) >= HP.unlockDay(id); };
 
   /* ---------- 每日一锅：同一天所有人同一份菜单、同一串事件 ---------- */
   HP.dailySetup = function (day) {
@@ -138,8 +153,9 @@ var HP = window.HP = window.HP || {};
   HP.dayLabel = function (day) { return Math.floor(day / 100) % 100 + '月' + day % 100 + '日'; };
 
   /* ---------- 一局结束：结算奖励 ---------- */
+  /* ctx：{ scene, daily, practice, bestKey（null 不记纪录）, story（这局能不能推进火锅日记） } */
   HP.settle = function (p, s, ctx) {
-    var today = HP.dayKey(), out = { coins: 0, lines: [], ach: [], isBest: false, titleUp: null, streakUp: false };
+    var today = HP.dayKey(), out = { coins: 0, lines: [], ach: [], isBest: false, titleUp: null, streakUp: false, prevBest: 0 };
     var base = Math.floor(s.score / 10);
     var firstToday = p.lastPlayDay !== today;
     out.coins += firstToday ? base * 2 : base;
@@ -149,29 +165,45 @@ var HP = window.HP = window.HP || {};
     for (var k in s.perfectBy) if (s.perfectBy.hasOwnProperty(k) && !p.perfectBy[k]) {
       out.coins += 20; out.lines.push(['第一次完美 · ' + HP.FOODS[k].name, 20]);
     }
-    var bestKey = ctx.daily ? 'daily' : ctx.scene;
-    if (s.score > (p.bestBy[bestKey] || 0) && s.score > 0 && !ctx.practice) {
-      out.isBest = true; p.bestBy[bestKey] = s.score;
-      if (p.games > 0) { out.coins += 50; out.lines.push(['破个人纪录', 50]); }
+    var bestKey = ctx.bestKey !== undefined ? ctx.bestKey : (ctx.daily ? 'daily' : ctx.scene);
+    if (bestKey) {
+      out.prevBest = p.bestBy[bestKey] || 0;
+      if (s.score > out.prevBest && s.score > 0 && !ctx.practice) {
+        out.isBest = true; p.bestBy[bestKey] = s.score;
+        if (p.games > 0) { out.coins += 50; out.lines.push(['破个人纪录', 50]); }
+      }
     }
     p.best = Math.max(p.best || 0, s.score);
 
-    // 连续打卡
+    // 连续打卡：断了一天，有补签卡就自动补上
     if (firstToday) {
-      var yesterday = HP.dayKey(new Date(Date.now() - 864e5));
-      p.streak.n = p.streak.last === yesterday ? p.streak.n + 1 : 1;
+      var yesterday = HP.dayKey(new Date(Date.now() - 864e5)), before = HP.dayKey(new Date(Date.now() - 2 * 864e5));
+      if (p.streak.last === yesterday) p.streak.n++;
+      else if (p.streak.last === before && p.streak.n > 0 && (p.freeze || 0) > 0) { p.freeze--; p.streak.n++; out.freezeUsed = true; }
+      else p.streak.n = 1;
       p.streak.last = today; out.streakUp = true;
       if (p.streak.n === 3) { out.coins += 100; out.lines.push(['连续打卡 3 天', 100]); }
       if (p.streak.n >= 7 && p.streak.n % 7 === 0) { out.coins += 300; out.lines.push(['连续打卡 ' + p.streak.n + ' 天', 300]); }
     }
     p.lastPlayDay = today;
 
-    // 每日一锅
-    // 每日一锅：只有当天第一局算今日成绩，之后是练习
+    // 每日一锅：只有当天第一局算今日成绩，之后是练习；正式成绩两星以上送一张补签卡（最多存 2 张）
     if (ctx.daily) {
       if (p.daily.day !== today) { p.daily.day = today; p.daily.best = 0; p.daily.plays = 0; }
-      if (!p.daily.plays) { p.daily.best = s.score; p.daily.stars = s.stars || 0; out.dailyFirst = true; }
+      if (!p.daily.plays) {
+        p.daily.best = s.score; p.daily.stars = s.stars || 0; p.daily.log = (s.log || []).join(''); out.dailyFirst = true;
+        if ((s.stars || 0) >= 2 && (p.freeze || 0) < 2) { p.freeze = (p.freeze || 0) + 1; out.freezeGot = true; }
+      }
       p.daily.plays++;
+    }
+
+    // 火锅日记：拿到两星算这一天过关，每个自然日最多推进 HP.DAY_CAP 天
+    if (ctx.story && (s.stars || 0) >= HP.DAY_STARS && p.day < HP.DAY_MAX) {
+      if (!p.dayLog || p.dayLog.date !== today) p.dayLog = { date: today, n: 0 };
+      if (p.dayLog.n < HP.DAY_CAP) {
+        out.dayDone = p.day; p.day++; p.dayLog.n++; out.dayUp = p.day;
+        out.dayPost = HP.dayStory(p, out.dayDone);
+      } else out.dayCapped = true;
     }
     // 星级：剧本、饭局卡各记最高
     if (s.stars != null) {
@@ -203,21 +235,23 @@ var HP = window.HP = window.HP || {};
     { id: 'trip', name: '见过小人的人', line: '见手青没熟就吃，现在看什么都在跳舞', rare: 'SR', best: 'yangsheng', worst: 'shengchi',
       test: function (s) { return s.trip >= 1; } },
     { id: 'shilian', name: '失恋陪护师', line: '老王哭了一晚上，你喂了他一晚上毛肚', rare: 'SR', best: 'laomazi', worst: 'ganfan', card: 'heartbreak',
-      hint: '也许在老王最难过的时候……', test: function (s) { return s.card === 'heartbreak' && s.cardGoal >= 3; } },
+      hint: '也许在老王最难过的时候……', test: function (s) { return HP.hasCard(s, 'heartbreak') && HP.cg(s, 'heartbreak') >= 3; } },
     { id: 'jianfei', name: '减肥破坏者', line: '她说不要，你说再吃一口', rare: 'SR', best: 'roushi', worst: 'yangsheng', card: 'diet',
-      hint: '闺蜜减肥的时候，偷偷……', test: function (s) { return s.card === 'diet' && s.dietCheat >= 2; } },
+      hint: '闺蜜减肥的时候，偷偷……', test: function (s) { return HP.hasCard(s, 'diet') && s.dietCheat >= 2; } },
     { id: 'yinlu', name: '职场引路人', line: '新人记住了你，你是 TA 的第一位好前辈', rare: 'SR', best: 'mianao', worst: 'hushi', card: 'newbie',
-      hint: '公司来了新人……', test: function (s) { return s.card === 'newbie' && s.cardGoal >= 3; } },
+      hint: '公司来了新人……', test: function (s) { return HP.hasCard(s, 'newbie') && HP.cg(s, 'newbie') >= 3; } },
     { id: 'heian', name: '黑暗火候师', line: '灯都灭了，你的火候还是一秒不差', rare: 'SR', best: 'huohou', worst: 'shengchi', card: 'blackout',
-      hint: '看不见的时候也能……', test: function (s) { return s.card === 'blackout' && s.perfect >= 6; } },
+      hint: '看不见的时候也能……', test: function (s) { return HP.hasCard(s, 'blackout') && s.perfect >= 6; } },
     { id: 'aa', name: 'AA 战士', line: '这顿饭你只花了一份毛肚钱，吃得一点不少', rare: 'SR', best: 'guicai', worst: 'laomazi', card: 'aa',
-      hint: '有人提议 AA 的时候……', test: function (s) { return s.card === 'aa' && s.self >= 3 && s.selfSpend <= 60; } },
+      hint: '有人提议 AA 的时候……', test: function (s) { return HP.hasCard(s, 'aa') && s.self >= 3 && s.selfSpend <= 60; } },
     { id: 'shengri', name: '生日宴主持人', line: '歌唱得齐，菜夹得勤，寿星感动哭了', rare: 'SR', best: 'qifen', worst: 'moyu', card: 'birthday',
-      hint: '有人过生日的时候……', test: function (s) { return s.card === 'birthday' && s.cardGoal >= 2 && !s.songBreak && s.songOk >= 1; } },
+      hint: '有人过生日的时候……', test: function (s) { return HP.hasCard(s, 'birthday') && HP.cg(s, 'birthday') >= 2 && !s.songBreak && s.songOk >= 1; } },
     { id: 'chenluan', name: '趁乱干饭人', line: '全场都在看求婚，只有你在认真吃', rare: 'SR', best: 'ganfan', worst: 'qifen', card: 'proposal',
-      hint: '别人都在看热闹的时候……', test: function (s) { return s.card === 'proposal' && s.propEat >= 3; } },
+      hint: '别人都在看热闹的时候……', test: function (s) { return HP.hasCard(s, 'proposal') && s.propEat >= 3; } },
     { id: 'zhugong', name: '神助攻', line: '老王的终身大事，有一半功劳是你的', rare: 'SSR', best: 'laomazi', worst: 'ganfan', card: 'gfdate',
-      hint: '老王有一天会带一个人来……', test: function (s) { return s.card === 'gfdate' && s.cardGoal >= 3; } },
+      hint: '老王有一天会带一个人来……', test: function (s) { return HP.hasCard(s, 'gfdate') && HP.cg(s, 'gfdate') >= 3; } },
+    { id: 'fantai', name: '翻台王者', line: '一桌人轮番点单，你一个都没让他们走', rare: 'SR', best: 'laomazi', worst: 'moyu',
+      hint: '在翻台挑战里撑过 2 分钟', test: function (s) { return s.endless && (s.time || 0) >= 120; } },
     { id: 'tianxuan', name: '天选饭搭子', line: '技术好、会照顾人、还不抢菜，谁不想跟你吃火锅', rare: 'SSR', best: 'tianxuan', worst: 'ganfan',
       test: function (s, x) { return s.orders >= 4 && x.serveRatio >= 0.3 && x.serveRatio <= 0.75 && x.perfRate >= 0.7 && s.orderMiss <= 1 && !s.toastMiss && !s.speechBreak && s.score >= 2200; } },
     { id: 'danshen', name: '单身原因找到了', line: '相亲对象饿着肚子，你吃得满嘴流油', rare: 'R', best: 'ganfan', worst: 'laomazi',
@@ -256,9 +290,9 @@ var HP = window.HP = window.HP || {};
       test: function (s, x) { return s.self >= 8 && x.serveRatio <= 0.15; } },
     { id: 'guicai', name: '贵菜鉴赏家', line: '只挑贵的，这顿 AA 谁也别想占你便宜', rare: 'R', best: 'roushi', worst: 'yangsheng',
       test: function (s) { return s.self >= 5 && s.expSelf / s.self >= 0.5; } },
-    { id: 'roushi', name: '肉食动物', line: '青菜？那是锅底的装饰', rare: 'N', best: 'yangsheng', worst: 'yangsheng',
+    { id: 'roushi', name: '肉食动物', line: '青菜？那是锅底的装饰', rare: 'N', best: 'ganfan', worst: 'yangsheng',
       test: function (s) { return s.self >= 6 && s.meat / s.self >= 0.85; } },
-    { id: 'yangsheng', name: '养生派', line: '来火锅店吃了一顿沙拉', rare: 'N', best: 'roushi', worst: 'guicai',
+    { id: 'yangsheng', name: '养生派', line: '来火锅店吃了一顿沙拉', rare: 'N', best: 'jinzhengu', worst: 'roushi',
       test: function (s) { return s.self >= 5 && s.veg / s.self >= 0.6; } },
     { id: 'moyu', name: '摸鱼食客', line: '来了，坐了，吃了两口，走了', rare: 'N', best: 'laomazi', worst: 'qifen',
       test: function (s, x) { return x.total <= 5; } },
@@ -294,7 +328,7 @@ var HP = window.HP = window.HP || {};
     HP.PERSONAS.forEach(function (p) {
       if (p.id === got.id) return;
       var txt = null;
-      if (p.card) { if (s.card === p.card) { var C = HP.cardById(p.card), pr = HP.cardProgress(C, s); if (pr && !pr.done && pr.need - pr.cur === 1) txt = '饭局目标只差 1 次'; } }
+      if (p.card) { if (HP.hasCard(s, p.card)) { var C = HP.cardById(p.card), pr = HP.cardProgress(C, s); if (pr && !pr.done && pr.need - pr.cur === 1) txt = '饭局目标只差 1 次'; } }
       else if (NEAR[p.id]) txt = NEAR[p.id](s, x);
       if (!txt) return;
       var score = order[p.rare] + (owned[p.id] ? 0 : 5);

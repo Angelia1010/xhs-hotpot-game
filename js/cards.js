@@ -36,40 +36,65 @@ var HP = window.HP = window.HP || {};
       scenes: ['bros'], swap: { friend: 'gf' }, noSteal: ['laowang'], shy: ['laowang'] }
   ];
   HP.cardById = function (id) { for (var i = 0; i < HP.CARDS.length; i++) if (HP.CARDS[i].id === id) return HP.CARDS[i]; return null; };
+  /* 某张卡的目标计数；这局有没有这张卡（饭局夜里可能叠了好几张） */
+  HP.cg = function (s, id) { return (s.cg && s.cg[id]) || 0; };
+  HP.hasCard = function (s, id) { return !!(s.cards && s.cards.indexOf(id) >= 0) || s.card === id; };
 
-  /* 这桌能抽哪些卡 */
-  HP.cardPool = function (sceneId, profile) {
+  /* 叠在一起会互相打架的卡：换掉了同一个人，或者一张卡要的人被另一张换走了 */
+  var CONFLICT = { diet: ['newbie', 'gfdate'], newbie: ['diet'], gfdate: ['diet'] };
+  function clash(c, taken) {
+    for (var i = 0; i < taken.length; i++) {
+      var t = taken[i];
+      if ((CONFLICT[c.id] || []).indexOf(t) >= 0 || (CONFLICT[t] || []).indexOf(c.id) >= 0) return true;
+    }
+    return false;
+  }
+
+  /* 这桌能抽哪些卡（taken：饭局夜里已经叠上的卡） */
+  HP.cardPool = function (sceneId, profile, taken) {
+    taken = taken || [];
     return HP.CARDS.filter(function (c) {
       if (c.scenes.indexOf(sceneId) < 0) return false;
+      if (taken.indexOf(c.id) >= 0 || clash(c, taken)) return false;
       if (c.bond && (!profile || HP.bondLevel(profile, c.bond) < 5)) return false;
       if (c.unlockGames && (!profile || (profile.games || 0) < c.unlockGames)) return false;
       return true;
     });
   };
   /* 抽一张：羁绊卡解锁后有 35% 概率出现；每日一锅用种子抽，所有人同一张 */
-  HP.pickCard = function (sceneId, profile, r) {
+  HP.pickCard = function (sceneId, profile, r, taken) {
     r = r || Math.random;
-    var pool = HP.cardPool(sceneId, profile);
+    var pool = HP.cardPool(sceneId, profile, taken);
     if (!pool.length) return null;
     var bond = pool.filter(function (c) { return c.bond; });
     if (bond.length && r() < 0.35) return bond[0];
     pool = pool.filter(function (c) { return !c.bond; });
-    return pool[Math.floor(r() * pool.length)];
+    return pool.length ? pool[Math.floor(r() * pool.length)] : bond[0];
+  };
+  /* 三选一：抽 n 张不重复的卡让玩家挑（羁绊卡解锁后一定在里面） */
+  HP.pickCards = function (sceneId, profile, n, taken, r) {
+    r = r || Math.random;
+    var pool = HP.cardPool(sceneId, profile, taken), out = [];
+    var bond = pool.filter(function (c) { return c.bond; });
+    if (bond.length) out.push(bond[0]);
+    pool = pool.filter(function (c) { return !c.bond; });
+    while (out.length < n && pool.length) out.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+    return out;
   };
 
   /* 本局目标进度：{ cur, need, done, text } */
   HP.cardProgress = function (card, s) {
     if (!card) return null;
-    var cur, done;
+    var cur, done, g = HP.cg(s, card.id);
     if (card.id === 'blackout') cur = s.perfect;
     else if (card.id === 'freemaodu') cur = s.authentic;
     else if (card.id === 'aa') {
       done = s.self >= 3 && s.selfSpend <= card.need;
       return { cur: s.selfSpend, need: card.need, done: done, text: '自己吃 ' + s.self + ' 块 · 花了 ¥' + s.selfSpend + ' / ¥' + card.need };
     } else if (card.id === 'birthday') {
-      done = s.cardGoal >= card.need && !s.songBreak;
-      return { cur: s.cardGoal, need: card.need, done: done, text: '给寿星夹 ' + Math.min(s.cardGoal, card.need) + ' / ' + card.need + (s.songBreak ? ' · 唱歌时动筷了' : '') };
-    } else cur = s.cardGoal;
+      done = g >= card.need && !s.songBreak;
+      return { cur: g, need: card.need, done: done, text: '给寿星夹 ' + Math.min(g, card.need) + ' / ' + card.need + (s.songBreak ? ' · 唱歌时动筷了' : '') };
+    } else cur = g;
     done = cur >= card.need;
     return { cur: cur, need: card.need, done: done, text: card.goal + ' ' + Math.min(cur, card.need) + '/' + card.need };
   };

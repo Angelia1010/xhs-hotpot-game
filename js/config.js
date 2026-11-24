@@ -30,39 +30,56 @@ HP.POT_ORDER = ['jiugong', 'yuanyang'];
 /* 食材：a~b 为完美窗口（泡在汤里的秒数 × 火力），size 为相对锅宽的显示尺寸
    mode: 'drop' 丢进锅里煮；'swish' 按住在锅里涮，松手捞起
    veg: 素菜（算荤素搭配）；unlock: 解锁价格（没有就是初始菜）
-   dips: 七上八下次数；sinker: 生的沉底、熟了浮起；special: 特殊玩法；tip: 第一次下锅的提示 */
+   dips: 上下提放次数窗口（authentic: 算「正宗七上八下」；dipName: 达成时的叫法）；sinker: 生的沉底、熟了浮起
+   special: 每道解锁菜自带一个新操作（见 HP.SPECIAL）；tip: 第一次下锅的提示 */
 HP.FOODS = {
   beef:          { name: '肥牛',     mode: 'swish', a: 4,  b: 6.5, size: 0.095, price: 15, depth: 0.15 },
-  tenderbeef:    { name: '嫩牛肉',   mode: 'swish', a: 3,  b: 5,   size: 0.100, price: 18, depth: 0.15, unlock: 400 },
-  maodu:         { name: '毛肚',     mode: 'swish', a: 4,  b: 10,  size: 0.105, price: 25, depth: 0.10, dips: [7, 8] },
-  strawberry_maodu: { name: '草莓毛肚', mode: 'swish', a: 4, b: 10, size: 0.100, price: 30, depth: 0.10, dips: [7, 8], unlock: 1000,
+  tenderbeef:    { name: '嫩牛肉',   mode: 'swish', a: 3,  b: 5,   size: 0.100, price: 18, depth: 0.15, unlock: 400,
+                   special: 'shake', shakes: 3, tip: '嫩牛肉要抖散：涮的时候<b>左右晃 3 下</b>，不然粘成一坨' },
+  maodu:         { name: '毛肚',     mode: 'swish', a: 4,  b: 10,  size: 0.105, price: 25, depth: 0.10, dips: [7, 8], authentic: true },
+  strawberry_maodu: { name: '草莓毛肚', mode: 'swish', a: 4, b: 10, size: 0.100, price: 30, depth: 0.10, dips: [7, 8], authentic: true, unlock: 1000,
                    special: 'strawberry', tip: '网红梗菜：照样七上八下，吃完川渝人会沉默' },
-  duckintestine: { name: '鸭肠',     mode: 'swish', a: 3,  b: 5,   size: 0.115, price: 18, depth: 0.10, unlock: 200 },
-  goose:         { name: '鹅肠',     mode: 'swish', a: 3.5, b: 5.5, size: 0.115, price: 22, depth: 0.10, unlock: 400 },
-  kidney:        { name: '腰片',     mode: 'swish', a: 4,  b: 6.5, size: 0.100, price: 20, depth: 0.12, unlock: 500 },
-  huanghou:      { name: '黄喉',     mode: 'drop',  a: 8,  b: 12,  size: 0.110, price: 22, depth: 0.12, unlock: 300 },
+  duckintestine: { name: '鸭肠',     mode: 'swish', a: 3,  b: 5,   size: 0.115, price: 18, depth: 0.10, unlock: 200,
+                   dips: [3, 4], dipName: '三上三下，卷了！', tip: '鸭肠<b>三上三下</b>就卷了：拖进锅后上下提放 3~4 次' },
+  goose:         { name: '鹅肠',     mode: 'swish', a: 3.5, b: 5.5, size: 0.115, price: 22, depth: 0.10, unlock: 400,
+                   special: 'still', tip: '鹅肠一提就断：拖进锅里<b>按住别上下提</b>' },
+  kidney:        { name: '腰片',     mode: 'swish', a: 4,  b: 6.5, size: 0.100, price: 20, depth: 0.12, unlock: 500,
+                   special: 'hot', tip: '腰片要在<b>火最大的地方</b>涮，火小了有腥味' },
+  huanghou:      { name: '黄喉',     mode: 'drop',  a: 8,  b: 12,  size: 0.110, price: 22, depth: 0.12, unlock: 300,
+                   special: 'drift', tip: '黄喉会在锅里<b>漂来漂去</b>，漂到大火格熟得快' },
   shrimp:        { name: '虾滑',     mode: 'drop',  a: 6,  b: 9,   size: 0.075, price: 20, depth: 0.0, sinker: true },
-  beefball:      { name: '牛肉丸',   mode: 'drop',  a: 7,  b: 11,  size: 0.075, price: 16, depth: 0.0, sinker: true, unlock: 400 },
+  beefball:      { name: '牛肉丸',   mode: 'drop',  a: 7,  b: 11,  size: 0.075, price: 16, depth: 0.0, sinker: true, unlock: 400,
+                   special: 'burst', tip: '牛肉丸熟过头会<b>爆汁</b>：浮起来就赶紧捞' },
   duckblood:     { name: '鸭血',     mode: 'drop',  a: 15, b: 22,  size: 0.080, price: 12, depth: 0.30 },
   luncheon:      { name: '午餐肉',   mode: 'drop',  a: 5,  b: 12,  size: 0.085, price: 8,  depth: 0.12 },
-  tofu:          { name: '冻豆腐',   mode: 'drop',  a: 8,  b: 16,  size: 0.085, price: 8,  depth: 0.25, veg: true, unlock: 250 },
+  tofu:          { name: '冻豆腐',   mode: 'drop',  a: 8,  b: 16,  size: 0.085, price: 8,  depth: 0.25, veg: true, unlock: 250,
+                   special: 'soak', soak: 6, tip: '冻豆腐<b>越煮越入味</b>：过了火候再等一会儿也是完美' },
   potato:        { name: '土豆片',   mode: 'drop',  a: 8,  b: 15,  size: 0.085, price: 6,  depth: 0.12, veg: true },
-  lotus:         { name: '藕片',     mode: 'drop',  a: 6,  b: 12,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 250 },
+  lotus:         { name: '藕片',     mode: 'drop',  a: 6,  b: 12,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 250,
+                   special: 'crisp', tip: '藕片要脆：<b>刚变色就捞</b>分最高，捞晚了就面了' },
   lettuce:       { name: '生菜',     mode: 'swish', a: 1,  b: 2.5, size: 0.100, price: 5,  depth: 0.10, veg: true, tip: '生菜烫一下就好，一不留神就蔫了' },
-  gongcai:       { name: '贡菜',     mode: 'swish', a: 2,  b: 4,   size: 0.100, price: 8,  depth: 0.10, veg: true, unlock: 200 },
+  gongcai:       { name: '贡菜',     mode: 'swish', a: 2,  b: 4,   size: 0.100, price: 8,  depth: 0.10, veg: true, unlock: 200,
+                   special: 'share', tip: '贡菜是大家分的：<b>夹给同桌分数 ×2</b>，自己吃只有一半' },
   napa:          { name: '娃娃菜',   mode: 'drop',  a: 9,  b: 18,  size: 0.090, price: 6,  depth: 0.15, veg: true },
   enoki:         { name: '金针菇',   mode: 'drop',  a: 5,  b: 10,  size: 0.090, price: 8,  depth: 0.12, veg: true, unlock: 250,
-                   special: 'tangle', tip: '金针菇缠成一团，要点两下才夹得起来' },
-  shiitake:      { name: '香菇',     mode: 'drop',  a: 7,  b: 13,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 250 },
-  wintermelon:   { name: '冬瓜',     mode: 'drop',  a: 14, b: 24,  size: 0.085, price: 6,  depth: 0.15, veg: true, unlock: 200, tip: '冬瓜最慢，煮到透明再捞' },
+                   special: 'tangle', tip: '金针菇缠成一团，要<b>点两下</b>才夹得起来' },
+  shiitake:      { name: '香菇',     mode: 'drop',  a: 7,  b: 13,  size: 0.085, price: 8,  depth: 0.12, veg: true, unlock: 250,
+                   special: 'sink', tip: '香菇熟透会<b>沉下去</b>，沉了就老了' },
+  wintermelon:   { name: '冬瓜',     mode: 'drop',  a: 14, b: 24,  size: 0.085, price: 6,  depth: 0.15, veg: true, unlock: 200,
+                   special: 'bulky', tip: '冬瓜最慢，还<b>占两个位置</b>，煮到透明再捞' },
   jianshouqing:  { name: '见手青',   mode: 'drop',  a: 10, b: 16,  size: 0.085, price: 30, depth: 0.12, veg: true, unlock: 1000,
                    special: 'trip', tip: '见手青一定要煮熟！没熟就吃会「看见小人」' }
 };
+/* 特殊玩法的短标签（托盘、菜单里显示） */
+HP.SPECIAL = { shake: '要抖散', still: '别提起', hot: '要大火', drift: '会漂', burst: '会爆汁', soak: '越煮越香', crisp: '要脆',
+  share: '要分享', sink: '会下沉', bulky: '占两格', tangle: '会缠住', trip: '要煮熟', strawberry: '梗菜' };
+HP.dipsOf = function (type) { var F = HP.FOODS[type]; return F.dips ? (F.authentic ? '七上八下' : F.dipName ? '三上三下' : '') : ''; };
+HP.slotOf = function (type) { return HP.FOODS[type].special === 'bulky' ? 2 : 1; };
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
-HP.VERSION = '1.2.0';
-HP.RULES = 4;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
+HP.VERSION = '1.3.0';
+HP.RULES = 5;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
 /* 越贵的菜分越高：¥5 ×0.7 … ¥15 ×1.1 … ¥30 ×1.7 */
 HP.ptsOf = function (type) { return Math.round((0.5 + HP.FOODS[type].price * 0.04) * 100) / 100; };
@@ -161,9 +178,54 @@ HP.SCENES = {
           speech: { text: '七大姑：你什么时候结婚啊？', sub: '被催婚了，先别动筷子' },
           toast: { text: '大舅举杯：来，祝你早日成家！', sub: '快点「干杯」' },
           intro: ['七大姑催婚时<b>别动筷子</b>', '大舅举杯要<b>干杯</b>', '一桌人都照顾到，才是好孩子'] },
-  solo: { name: '一人食', desc: '没人点菜也没人抢，只比火候有多准', npcs: [], events: ['soup', 'fire'], tip: '没人跟你抢，专心看火候' }
+  solo: { name: '一人食', desc: '没人点菜也没人抢，只比火候有多准', npcs: [], events: ['soup', 'fire'], tip: '没人跟你抢，专心看火候' },
+  rush: { name: '翻台挑战', desc: '点单越来越快，等不到菜的人会离席，走 3 个就结束', npcs: ['laowang'], events: ['soup', 'fire'],
+          diners: [['friend', 'L'], ['laowang', 'C'], ['auntie', 'R']], endless: true,
+          intro: ['没有倒计时：<b>同桌等不到菜会离席</b>', '离席 <b>3 次</b>就结束；<b>40 秒</b>没人走，就有一位消气回来', '越往后点单越快，挑着先涮'] }
 };
-HP.SCENE_ORDER = ['bros', 'team', 'date', 'family', 'solo'];
+HP.SCENE_ORDER = ['bros', 'team', 'date', 'family', 'solo', 'rush'];
+/* 翻台挑战：离席几次结束；同一道菜的「腻」每隔多少秒消退一半；连续多少秒没人离席就消掉一次 */
+HP.RUSH = { strikes: 3, fatigueDecay: 45, calm: 40 };
+/* 饭局夜：一晚赶三场，卡的效果叠加 */
+HP.NIGHT = ['bros', 'team', 'family'];
+
+/* ---------- 火锅日记：按天解锁机制和剧情（同样的内容，分摊到多天） ----------
+   rules：这一天还没学的机制先关掉；lesson：开局前的教学步骤（tutorial.js 的 STEPS 序号）
+   scenes / modes：这一天新开的剧本 / 玩法；story：完成这一天后同桌发的朋友圈 */
+HP.DAYS = [
+  { title: '第一次吃火锅', learn: '「煮」：拖进锅里松手，变色了点它捞；同桌点的菜拖到 TA 头像上',
+    lesson: [3, 4, 6], scenes: ['bros'], rules: { swish: false, dips: false, steal: false, events: false, cards: false },
+    story: { who: 'friend', t: '第一次跟新朋友吃火锅，TA 给我夹的午餐肉刚刚好', img: 'moment_friend_1' } },
+  { title: '学会「涮」', learn: '「涮」：拖进锅里别松手，松手就捞起',
+    lesson: [0, 1], rules: { dips: false, steal: false, events: false, cards: false },
+    story: { who: 'friend', t: '宣布：以后肥牛都归 TA 涮' } },
+  { title: '老王来了', learn: '老王会抢菜：筷子伸过来时<b>点它</b>挡开',
+    lesson: [5], rules: { dips: false, events: false, cards: false },
+    story: { who: 'laowang', t: '今天抢菜输了，这兄弟手是真快', img: 'moment_laowang_1' } },
+  { title: '七上八下', learn: '毛肚要上下提放 7~8 次；鸭肠三上三下',
+    lesson: [2], rules: { events: false, cards: false },
+    story: { who: 'laowang', t: '服了，毛肚涮得比我们重庆人还讲究' } },
+  { title: '饭桌意外', learn: '服务员加汤会降温，老王开大火熟得飞快；新剧本「公司团建」',
+    scenes: ['team'], rules: { cards: false },
+    story: { who: 'boss', t: '今天团建，新同事挺有眼力见', img: 'moment_boss_1' } },
+  { title: '饭局卡', learn: '每局开吃前从 3 张饭局卡里<b>挑一张</b>：规则会变，完成目标拿第三颗星',
+    story: { who: 'friend', t: '今天老王失恋了，还好有毛肚', img: 'moment_friend_2' } },
+  { title: '相亲局', learn: '新剧本「相亲局」：多照顾对面，别光顾着自己吃',
+    scenes: ['date'], story: { who: 'date', t: '今天相亲，对方一直帮我夹菜……', img: 'moment_date_1' } },
+  { title: '回家吃饭', learn: '新剧本「家宴」：七大姑催婚时别动筷子',
+    scenes: ['family'], story: { who: 'auntie', t: '我家孩子真懂事，知道给长辈夹菜', img: 'moment_auntie_1' } },
+  { title: '一晚赶三场', learn: '新玩法「饭局夜」：朋友局→团建→家宴连吃三桌，饭局卡效果一路叠加；新剧本「一人食」',
+    scenes: ['solo'], modes: ['night'], story: { who: 'laowang', t: '一晚上赶三场饭局，这人胃是铁打的', img: 'moment_laowang_2' } },
+  { title: '翻台挑战', learn: '新玩法「翻台挑战」：没有倒计时，同桌离席 3 次就结束',
+    scenes: ['rush'], modes: ['rush'], story: { who: 'boss', t: '年轻人涮毛肚，七上八下，有板有眼', img: 'moment_boss_2' } }
+];
+HP.DAY_MAX = HP.DAYS.length;
+HP.DAY_CAP = 3;          // 每个自然日最多推进几天剧情（留个念想明天再来）
+HP.DAY_STARS = 2;        // 拿到几颗星算「这一天过关」
+
+/* 阵营：九宫格派 vs 鸳鸯派（排行榜内测能力可用时才显示） */
+HP.FACTIONS = { jiugong: { name: '九宫格派', board: 3, color: '#ff7a3c' }, yuanyang: { name: '鸳鸯派', board: 4, color: '#ffd35c' } };
+HP.BOARDS = { daily: 1, rush: 2 };
 /* 每日一锅：按星期换剧本（0=周日） */
 HP.DAILY_SCENES = ['family', 'team', 'bros', 'date', 'team', 'bros', 'family'];
 
@@ -175,6 +237,15 @@ HP.rng = function (seed) {
     var t = Math.imul(a ^ (a >>> 15), 1 | a);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+/* 一局里分开的几条随机数流：赛程（事件、抢菜、点单）只受种子决定，不受玩家操作影响；台词另走一条 */
+HP.streams = function (seed) {
+  if (!seed) return { ev: Math.random, npc: Math.random, card: Math.random, ord: function () { return Math.random; }, talk: Math.random };
+  var s = seed >>> 0;
+  return {
+    ev: HP.rng(s), npc: HP.rng(s ^ 0x5bd1e995), card: HP.rng(s ^ 0x27d4eb2f), talk: HP.rng(s ^ 0x165667b1),
+    ord: function (i) { return HP.rng((s ^ 0x9e3779b9) + i * 7919); }
   };
 };
 HP.dayKey = function (d) {

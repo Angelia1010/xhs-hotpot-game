@@ -75,6 +75,75 @@ var HP = window.HP = window.HP || {};
     return dataUrl ? call('share', { type: 'image', image_resource: dataUrl }) : call('share', { type: 'card' });
   };
 
+  /* ---------- 一键发笔记：结算卡直接带进发布页 ----------
+     大图先用 writeTempFile 换成本地路径（文档建议），失败就直接传 data URI */
+  P.canPost = has('postNote');
+  function tempFile(dataUrl) {
+    if (!has('writeTempFile')) return Promise.resolve(dataUrl);
+    return call('writeTempFile', { data: dataUrl }).then(function (r) { return (r && r.filePath) || dataUrl; }).catch(function () { return dataUrl; });
+  }
+  P.postNote = function (o) {
+    if (!P.canPost) return Promise.reject(new Error(inXhs ? 'unsupported' : 'browser'));
+    return Promise.all((o.images || []).map(tempFile)).then(function (urls) {
+      return call('postNote', { title: o.title, content: o.content, pageType: 'photo_publish',
+        mediaInfo: { image_resources: urls.map(function (u) { return { url: u }; }) } });
+    });
+  };
+
+  /* ---------- 对局中保持亮屏（9.55+） ---------- */
+  P.keepScreenOn = function (on) {
+    if (has('setKeepScreenOn')) call('setKeepScreenOn', { keepScreenOn: !!on }).catch(function () {});
+  };
+
+  /* ---------- 排行榜（内测）：方法存在才显示；未授权 1005 / 1006 就整块隐藏 ---------- */
+  P.rankOk = has('submitScore') && has('getRankList') && has('getMyRank');
+  function code(e) { return e && (e.errCode != null ? e.errCode : e.code); }
+  function denied(e) { var c = code(e); if (c === 1005 || c === 1006 || c === 10003) P.rankOk = false; return Promise.reject(e); }
+  P.submitScore = function (board, score) {
+    if (!P.rankOk) return Promise.resolve(null);
+    return call('submitScore', { board: board, score: score }).catch(denied).catch(function () { return null; });
+  };
+  /* 榜单没就绪（2002）退避重试 4 次；结果缓存 45 秒 */
+  var cache = {};
+  P.rankList = function (board, period) {
+    if (!P.rankOk) return Promise.reject(new Error('unsupported'));
+    var key = board + ':' + period, c = cache[key];
+    if (c && Date.now() - c.t < 45000) return Promise.resolve(c.v);
+    var tries = 0;
+    function go() {
+      return call('getRankList', { board: board, period: period }).then(function (r) {
+        var v = (r && r.data) || []; cache[key] = { t: Date.now(), v: v }; return v;
+      }).catch(function (e) {
+        if (code(e) === 2002 && tries < 4) { var w = 500 * Math.pow(2, tries++); return new Promise(function (res) { setTimeout(res, w); }).then(go); }
+        return denied(e);
+      });
+    }
+    return go();
+  };
+  P.myRank = function (board, period) {
+    if (!P.rankOk) return Promise.reject(new Error('unsupported'));
+    return call('getMyRank', { board: board, period: period }).catch(denied);
+  };
+
+  /* ---------- AI 文本生成（内测）：只在结算页调一次，10 秒没回就放弃 ---------- */
+  var AI = window.xhs && window.xhs.AI;
+  P.aiOk = !!(AI && typeof AI.createModel === 'function');
+  P.ai = function (messages) {
+    if (!P.aiOk) return Promise.resolve(null);
+    var timer, timeout = new Promise(function (res) { timer = setTimeout(function () { res(null); }, 10000); });
+    var job;
+    try {
+      job = Promise.resolve(AI.createModel('deepseek-v4-flash').generateText({ messages: messages, max_output_tokens: 120, temperature: 0.9 }));
+    } catch (e) { return Promise.resolve(null); }
+    return Promise.race([job.then(function (r) {
+      var c = r && r.choices && r.choices[0];
+      var t = (c && ((c.message && c.message.content) || c.text)) || (r && (r.text || r.content)) || '';
+      t = String(t).replace(/^["“\s]+|["”\s]+$/g, '');
+      return t ? t.slice(0, 80) : null;
+    }).catch(function (e) { if (e && /AI_NOT_ALLOWED/.test(String(e.errCode || e.code || e.message))) P.aiOk = false; return null; }), timeout])
+      .then(function (v) { clearTimeout(timer); return v; });
+  };
+
   /* ---------- 安全区：避开状态栏和右上角胶囊按钮 ---------- */
   P.getInsets = function () {
     if (!has('getWindowInfo')) return Promise.resolve(null);

@@ -18,7 +18,7 @@ var HP = window.HP = window.HP || {};
   Audio.prototype.unlock = function () {
     if (this.ctx) {
       // iOS 切到后台后会挂起音频，回来时需要在用户操作里恢复
-      if (this.ctx.state === 'suspended' && this.ctx.resume) { try { this.ctx.resume(); } catch (e) {} }
+      if (this.ctx.state === 'suspended' && this.ctx.resume) { try { var pr = this.ctx.resume(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} }
       return;
     }
     var AC = window.AudioContext || window.webkitAudioContext;
@@ -202,6 +202,10 @@ var HP = window.HP = window.HP || {};
     for (var i = 0; i < 5; i++) this.blop(t + rand(0.2, 0.8), rand(5, 10), rand(0.04, 0.07));
   };
 
+  /* 切到后台：挂起整个音频，背景咕嘟声也停 */
+  Audio.prototype.suspend = function () {
+    if (this.ctx && this.ctx.state === 'running' && this.ctx.suspend) { try { var pr = this.ctx.suspend(); if (pr && pr.catch) pr.catch(function () {}); } catch (e) {} }
+  };
   Audio.prototype.toggle = function () {
     this.on = !this.on;
     if (this.master) this.master.gain.value = this.on ? 0.85 : 0;

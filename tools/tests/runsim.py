@@ -8,7 +8,7 @@ async def main():
         perr=[]; pg.on('pageerror', lambda e: perr.append(str(e)))
         await pg.goto('http://localhost:8765/index.html'); await pg.wait_for_timeout(2500)
         rounds=[]
-        SC=['bros','team','date','family','solo']
+        SC=['bros','team','date','family','solo','rush']
         for skill in ['good','avg','bad']:
             for scene in SC:
                 for pot in ['jiugong','yuanyang']:
@@ -28,5 +28,13 @@ async def main():
                     sc=[o['score'] for o in xs]
                     print(f"{skill:4} {scene:4} {pot:8} score med {st.median(sc):6.0f} [{min(sc)}-{max(sc)}]  eaten {st.mean([o['eaten'] for o in xs]):4.1f} perfect {st.mean([o['perfect'] for o in xs]):4.1f} served {st.mean([o['served'] for o in xs]):4.1f} orders {st.mean([o['ordersDone'] for o in xs]):3.1f}/{st.mean([o['orders'] for o in xs]):3.1f} miss {st.mean([o['orderMiss'] for o in xs]):3.1f} stolen {st.mean([o['stolen'] for o in xs]):3.1f}")
         pc=collections.Counter(o['persona'] for o in O); print('personas', pc.most_common())
+        rush=[o for o in O if o['scene']=='rush']
+        for skill in ['good','avg','bad']:
+            xs=[o for o in rush if o['skill']==skill]
+            if xs: print(f"rush {skill:4} 撑了 med {st.median([o['time'] for o in xs]):.0f}s  score med {st.median([o['score'] for o in xs]):.0f}  ended {sum(o['ended'] for o in xs)}/{len(xs)}")
+        lc=collections.Counter()
+        for o in O:
+            for k,v in (o['loss'] or {}).items(): lc[k]+=v
+        print('loss by kind', lc.most_common())
         await b.close()
 asyncio.run(main())

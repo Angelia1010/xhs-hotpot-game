@@ -7,36 +7,67 @@
 python3 -m http.server 8080
 ```
 手机或浏览器打开 http://localhost:8080 。
+测试时想跳过火锅日记：首页底部版本号**连点 7 下**，日记直接全开。
+
+## 1.3 新增
+- **火锅日记**：10 天逐天解锁机制和剧本（煮 → 涮 → 抢菜 → 七上八下 → 突发事件 → 饭局卡 → 相亲 → 家宴 → 饭局夜 → 翻台），每天开局前只教当天的新本事；拿 2 颗星翻到下一天，一个自然日最多翻 3 天。老存档直接全开。
+- **每道解锁菜都有自己的吃法**：嫩牛肉要左右抖散、鸭肠三上三下、鹅肠别提起、腰片要大火、黄喉会漂、牛肉丸熟过头会爆汁、冻豆腐越煮越入味、藕片要脆、贡菜夹给同桌 ×2、香菇熟透会沉、冬瓜占两格（金针菇、见手青、草莓毛肚保留原玩法）。
+- **饭局卡三选一**；**饭局夜**：朋友局 → 团建 → 家宴连吃三桌，选过的卡一路叠加，记整晚总分。
+- **翻台挑战**：没有倒计时，同桌等不到菜会离席，离席 3 次结束；40 秒没人走就消掉一次。
+- **结算页**：再来一局放最上面；差多少分破纪录；下一个解锁的进度条；这局丢分最多的三项和下次怎么做；一键发笔记（postNote，标题 + 火候格子图 + 挑战码）。
+- **局内纪录线**：分数下面一条进度条，最后 10 秒提示还差多少分。
+- **今日火锅 Wordle 化**：赛程只由种子决定（玩家怎么玩都不影响事件和点单顺序）；结算生成火候格子图；两星以上送补签卡，断一天打卡自动续上。
+- **挑战码**：9 位离线挑战码（今日火锅期数 / 自定义种子 + 剧本 + 锅底 + 分数），朋友输入就能打同一锅比分，不需要服务器。
+- **排行榜 / 阵营赛**（平台内测能力）：今日火锅、翻台挑战、九宫格派 vs 鸳鸯派。接口不存在或未授权（1005/1006）整块隐藏；上传时需勾选「用户头像昵称授权」。
+- **AI 锐评**（平台内测能力）：结算页调用一次 `window.xhs.AI`，10 秒没回就不显示，每天最多 30 次。
+- 修复：肉食动物人格的最佳 / 最差饭搭子冲突、团建等待文案、教学里同桌不更新、计时器残留；面板盖住时不渲染、首页降到 20 帧、切后台挂起音频；iOS 上手和筷子的影子改用 shadowBlur；去掉 flex gap；结算用的图后台懒加载；素材按显示尺寸压缩（zip 3.6 → 2.4 MiB）；对局中 setKeepScreenOn；存档不可用时首页提示。
 
 ## 目录
 - `index.html` / `style.css`：唯一入口和界面样式
-- `js/config.js`：食材火候、九宫格火力、NPC 等全部数值
+- `js/config.js`：食材火候和特殊玩法、九宫格火力、NPC、剧本、火锅日记 10 天、随机数流
 - `js/fx.js`：沸腾气泡、涟漪、油光、热气等动态特效（程序绘制）
-- `js/game.js`：熟度系统、触控、NPC 抢菜、绘制
+- `js/game.js`：熟度系统、特殊菜、触控、NPC 抢菜、翻台挑战、丢分记账、绘制
+- `js/table.js`：同桌点单、上菜计分、离席
+- `js/cards.js`：饭局卡、三选一、叠卡冲突
+- `js/moments.js`：羁绊、饭后朋友圈、日记剧情
+- `js/meta.js`：存档、金币、解锁、每日一锅、打卡与补签、火锅日记推进、成就、称号、人格
+- `js/progress.js`：挑战码、丢分分析、火候格子图、下一个目标、笔记文案、AI 提示词
 - `js/audio.js`：Web Audio 合成音效（小工具不允许打包音频文件）
-- `js/main.js`：加载、主循环、首页、商店、图鉴、结算
-- `js/meta.js`：存档、金币、解锁、自选菜单、每日一锅、打卡、成就、称号、人格
-- `js/tutorial.js`：新手引导
-- `js/card.js`：结算卡「饭局报告」
-- `js/platform.js`：小红书接口适配
+- `js/card.js`：结算卡「饭局报告」、配对卡
+- `js/tutorial.js`：新手教学（按天分段）
+- `js/platform.js`：小红书接口适配（存档、震动、保存、分享、发笔记、亮屏、排行榜、AI）
+- `js/main.js`：加载、主循环、首页、商店、图鉴、选卡、结算、挑战码、排行榜
 - `img/`：处理后的 webp 素材（不放在 assets/，避免被平台静态资源优化移出包外、离线时加载失败）
 - `tools/process_assets.py`：把 GPT 原图切成三状态、裁切、压缩成 webp
+- `tools/tests/regression.py`：Playwright 回归（79 项，含模拟小红书容器）
+- `tools/tests/runsim.py` + `sim.js`：机器人压力模拟（好 / 中 / 差三档 × 6 个剧本）
+
+## 测试
+```
+python3 -m http.server 8765          # 另开一个终端
+python3 tools/tests/regression.py    # 回归
+python3 tools/tests/runsim.py        # 分数、人格、丢分分布
+```
 
 ## 打包上传小红书
 ```
 ./tools/build.sh      # 生成 huoguoju.zip（只含运行需要的文件）
 ```
-上传前，建议在 Builder Hub 上传页复制「调整为符合小红书规范的代码格式」口令，按官方 Skill 再校验一遍。
+上传后先在创服平台模拟器完整走一遍，再分别用 Android、iOS 真机扫码验证。用排行榜要在上传页勾选「用户头像昵称授权」；排行榜和 AI 锐评是内测能力，没开通时界面会自动隐藏。
 
 ## 平台能力（js/platform.js）
-- 存档：`setStorage/getStorage`（最高分、是否看过教学）；浏览器预览用 localStorage
-- 震动：`vibrateShort`
+- 存档：`setStorage/getStorage`（9.46+）；浏览器预览用 localStorage，小红书里不回退
+- 震动：`vibrateShort`（9.50+）
 - 保存结算卡：`saveImageToPhotosAlbum`（必须点击触发）
-- 分享：`share`（客户端 9.53+，全屏容器，每天 10 次）
-- 安全区：`getWindowInfo`，HUD 自动避开右上角胶囊按钮
+- 发笔记：`postNote`，大图先 `writeTempFile` 换成本地路径
+- 分享：`share`（9.53+，全屏容器，每天 10 次；image 类型只发站内私信）
+- 安全区：`getWindowInfo`，HUD 避开胶囊按钮
+- 亮屏：`setKeepScreenOn`（9.55+）
+- 排行榜：`submitScore / getRankList / getMyRank`（内测）
+- AI：`window.xhs.AI.createModel('deepseek-v4-flash').generateText`（内测）
 
 ## 加新菜
 1. GPT 出三状态图和点菜盘，放进原图目录
 2. `tools/process_assets.py` 的 `FOOD` 表里加一行（原图文件名 → 食材 id），重新处理素材
-3. `js/config.js` 的 `HP.FOODS` 加数值（mode、火候 a/b、大小、`unlock` 价格），`HP.FOOD_ORDER` 加 id
-4. `js/meta.js` 的 `FAV` 可以给新菜加一个「最爱人格」
+3. `js/config.js` 的 `HP.FOODS` 加数值（mode、火候 a/b、大小、`unlock` 价格、`special` 玩法），`HP.FOOD_ORDER` 加 id
+4. 新的 `special` 玩法：在 `game.js` 的 `rate()`（怎么判火候）或 `update()`（锅里会发生什么）里实现，`HP.SPECIAL` 加托盘上的短标签，`tools/tests/regression.py` 第 6 节加一条测试

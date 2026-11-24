@@ -135,7 +135,7 @@
     at(19.45, function () { g.startEvent('fire'); });
     dropTo('luncheon', 19.6, 3, 0, 0, { name: 'l2', d: 2.8, dur: 0.45 });
     dropTo('luncheon', 20.15, 5, 0, -0.01, { name: 'l3', d: 2.6, dur: 0.45 });
-    at(20.7, function () { g.sendNpc(npc('boss'), D.l3, 0.7); });
+    at(20.7, function () { g.sendNpc(npc('boss') || npc('laowang'), D.l3, 0.7); });
     tapAt(21.55, function () { return foodPt(D.l2); });
     var lf, lto;
     at(21.85, function () { lf = plate('lettuce'); lto = under(cellPt(4)); finger.down = true; finger.x = lf.x; finger.y = lf.y; g.dragStart('lettuce', lf.x, lf.y); });

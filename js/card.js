@@ -38,6 +38,25 @@ var HP = window.HP = window.HP || {};
   };
 
   var RARE_COL = { N: ['#c9b9a6', '#3a2a1a'], R: ['#7cc8ff', '#0c2c4a'], SR: ['#c59bff', '#2a1250'], SSR: ['#ffd35c', '#4a2a00'] };
+  /* 背景图还没加载完（后台懒加载）就先用渐变 */
+  function drawBg(ctx, bg) {
+    if (bg) { var sc = Math.max(W / bg.width, H / bg.height); ctx.drawImage(bg, (W - bg.width * sc) / 2, (H - bg.height * sc) / 2, bg.width * sc, bg.height * sc); return; }
+    var g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#5a1206'); g.addColorStop(1, '#1a0603');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  /* 火候格子图：一排彩色方块 */
+  function drawGrid(ctx, log, cx, y, size) {
+    var L = typeof log === 'string' ? log.split('') : (log || []);
+    if (!L.length) return 0;
+    var per = Math.min(L.length, 16), gap = size * 0.22, rows = Math.ceil(Math.min(L.length, 32) / per);
+    for (var i = 0; i < Math.min(L.length, 32); i++) {
+      var r = Math.floor(i / per), c = i % per, n = Math.min(per, L.length - r * per);
+      var x = cx - (n * size + (n - 1) * gap) / 2 + c * (size + gap), yy = y + r * (size + gap);
+      ctx.fillStyle = HP.GRID_COLOR[L[i]] || '#888'; rr(ctx, x, yy, size, size, size * 0.2); ctx.fill();
+    }
+    return rows * (size + gap);
+  }
+  HP.drawGrid = drawGrid;
   function fitFont(ctx, text, weight, size, maxW) {
     ctx.font = weight + ' ' + size + 'px ' + FONT;
     while (ctx.measureText(text).width > maxW && size > 40) { size -= 4; ctx.font = weight + ' ' + size + 'px ' + FONT; }
@@ -49,8 +68,7 @@ var HP = window.HP = window.HP || {};
     var ctx = c.getContext('2d'), i;
 
     // 背景：火锅氛围图 + 暗角
-    var bg = images.scene.card_bg, sc = Math.max(W / bg.width, H / bg.height);
-    ctx.drawImage(bg, (W - bg.width * sc) / 2, (H - bg.height * sc) / 2, bg.width * sc, bg.height * sc);
+    drawBg(ctx, images.scene.card_bg);
     var g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, 'rgba(25,3,0,0.62)'); g.addColorStop(0.5, 'rgba(25,3,0,0.35)'); g.addColorStop(1, 'rgba(15,2,0,0.8)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
@@ -95,7 +113,8 @@ var HP = window.HP = window.HP || {};
     // 数据格
     var cells = [
       [s.served, '夹给同桌'], [s.self, '自己吃'], [s.perfect, '完美火候'],
-      [s.orders ? s.ordersDone + '/' + s.orders : '—', '点单完成'], [s.blocked, '挡住筷子'], [s.authentic, '七上八下']
+      [s.orders ? s.ordersDone + '/' + s.orders : '—', '点单完成'], [s.blocked, '挡住筷子'],
+      s.endless ? [Math.floor((s.time || 0) / 60) + ':' + ('0' + ((s.time || 0) % 60)).slice(-2), '撑了多久'] : [s.authentic, '七上八下']
     ];
     var gx = 90, gy = 724, cw = (W - gx * 2 - 40) / 3, ch = 128;
     for (i = 0; i < cells.length; i++) {
@@ -120,14 +139,15 @@ var HP = window.HP = window.HP || {};
     ctx.fillStyle = '#ff9b7a'; ctx.fillText(worst ? worst.name : '—', gx + 250, by + 136);
     ctx.textAlign = 'center';
 
-    // 实录
+    // 火候格子图（每块菜一格）+ 实录
+    var gh = drawGrid(ctx, s.log, W / 2, 1240, 30);
     var lines = HP.cardLines(s).slice(0, 1);
-    ctx.font = '600 30px ' + FONT; ctx.fillStyle = '#ffe9cf';
-    lines.forEach(function (l) { ctx.fillText(l, W / 2, 1282, W - 120); });
+    ctx.font = '600 28px ' + FONT; ctx.fillStyle = '#ffe9cf';
+    lines.forEach(function (l) { ctx.fillText(l, W / 2, gh ? 1258 + gh + 18 : 1282, W - 120); });
 
-    // 落款
+    // 落款：带挑战码的话印上去
     ctx.font = '700 30px ' + FONT; ctx.fillStyle = 'rgba(255,211,92,0.95)';
-    ctx.fillText('来小红书搜「火锅局」，测测你是哪种饭搭子', W / 2, 1372);
+    ctx.fillText(extra.code ? '挑战码 ' + HP.prettyCode(extra.code) + ' · 小红书搜「火锅局」来比' : '来小红书搜「火锅局」，测测你是哪种饭搭子', W / 2, 1380, W - 100);
 
     return c.toDataURL('image/jpeg', 0.85);
   };
@@ -145,8 +165,8 @@ var HP = window.HP = window.HP || {};
   };
   HP.renderPairCard = function (images, a, b) {
     var c = document.createElement('canvas'); c.width = W; c.height = H;
-    var ctx = c.getContext('2d'), bg = images.scene.pair_bg || images.scene.card_bg, sc = Math.max(W / bg.width, H / bg.height);
-    ctx.drawImage(bg, (W - bg.width * sc) / 2, (H - bg.height * sc) / 2, bg.width * sc, bg.height * sc);
+    var ctx = c.getContext('2d');
+    drawBg(ctx, images.scene.pair_bg || images.scene.card_bg);
     var g = ctx.createLinearGradient(0, 0, 0, H);
     g.addColorStop(0, 'rgba(25,3,0,0.75)'); g.addColorStop(0.45, 'rgba(25,3,0,0.35)'); g.addColorStop(0.7, 'rgba(25,3,0,0.35)'); g.addColorStop(1, 'rgba(15,2,0,0.85)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);

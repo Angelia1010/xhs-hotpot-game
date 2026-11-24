@@ -59,6 +59,8 @@ async def main():
         # 资料：教学已完成、解锁视频要用的菜
         await pg.evaluate("""() => {
           var p = HP.profile(); p.tutorialDone = true; p.games = 3;
+          // 1.3：火锅日记停在第 5 天（机制全开、还没有饭局卡三选一），录一局标准的朋友局
+          p.day = 5; for (var i = 1; i <= 5; i++) { p.seen['lesson_' + i] = 1; p.seen['dayintro_' + i] = 1; }
           var ids = ['maodu','beef','luncheon','duckblood','enoki','shrimp','lettuce','jianshouqing'];
           ids.forEach(function(id){ if (p.unlocked.indexOf(id) < 0) p.unlocked.push(id); });
           p.loadout = ['maodu','luncheon','duckblood','enoki','shrimp','lettuce','jianshouqing','beef'];
