@@ -174,7 +174,7 @@ var HP = window.HP = window.HP || {};
   /* ---------- 绘制：头像（有素材用素材，没有就画个简笔脸）、点单气泡、说的话 ---------- */
   G.avatarImg = function (d, mood) {
     var S = this.img.scene;
-    return S['avatar_' + d.id + '_' + mood] || S['avatar_' + d.id + '_wait'] || null;
+    return S['avatar_' + d.id + '_' + mood] || S['avatar_' + d.id + '_wait'] || S['avatar_' + d.id + '_happy'] || null;
   };
   G.drawDiners = function (ctx) {
     if (!this.diners || !this.diners.length) return;
@@ -191,8 +191,8 @@ var HP = window.HP = window.HP || {};
       }
       var im = self.avatarImg(d, d.mood);
       if (im) {
-        var s = r * 2.5;
-        ctx.drawImage(im, d.x - s / 2, d.y - s / 2 - r * 0.05, s, s);
+        var s = r * 2.85;
+        ctx.drawImage(im, d.x - s / 2, d.y - s / 2 - r * 0.12, s, s);
       } else self.drawFace(ctx, d, r);
       if (self.bd === d) self.drawCrown(ctx, d.x, d.y - r * 1.02, r);
       // 名字
