@@ -434,14 +434,6 @@ body {
 .rk-row .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rk-row .sc { font-weight: 900; }
 .rk-row.me { background: rgba(120,30,6,0.8); }
-.rk-vs { display: flex; margin: 4px 0 10px; }
-.rk-vs div { flex: 1; padding: 10px; border-radius: 14px; text-align: center; background: rgba(0,0,0,0.3); }
-.rk-vs div + div { margin-left: 8px; }
-.rk-vs b { display: block; font-size: 20px; }
-.rk-vs small { font-size: 11px; opacity: 0.75; }
-.rk-pick { display: flex; margin: 10px 0; }
-.rk-pick button { flex: 1; }
-.rk-pick button + button { margin-left: 8px; }
 .rk-note { margin: 10px 0; font-size: 12px; opacity: 0.75; text-align: center; }
 
 /* 结算页：分数和「再来一局」放最上面 */

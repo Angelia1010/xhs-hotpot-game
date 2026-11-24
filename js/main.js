@@ -918,13 +918,13 @@
           });
         }
       }
-      // 排行榜（内测能力）：今日火锅正式成绩、翻台挑战、饭局夜整晚总分、阵营；提交完查名次显示在「再来一局」下面
+      // 排行榜（内测能力）：剧本局（含火锅日记）、今日火锅正式成绩、翻台挑战、饭局夜整晚总分；提交完查名次显示在「再来一局」下面
       var subs = [], rkShow = null;
+      if (opt.kind === 'scene' && sid !== 'rush') { subs.push(P.submitScore(HP.BOARDS.round, s.score)); rkShow = 'round'; }
       if (r.dailyFirst) { subs.push(P.submitScore(HP.BOARDS.daily, s.score)); rkShow = 'daily'; }
       else if (opt.kind === 'daily') rkShow = 'daily';
       if (sid === 'rush' && opt.kind === 'scene') { subs.push(P.submitScore(HP.BOARDS.rush, s.score)); rkShow = 'rush'; }
       if (opt.kind === 'night') { subs.push(P.submitScore(HP.BOARDS.night, total)); rkShow = 'night'; }
-      if (profile.faction && (opt.kind === 'scene' || opt.kind === 'night') && HP.FACTIONS[profile.faction]) P.submitScore(HP.FACTIONS[profile.faction].board, total);
       resultRank(rkShow, subs, total, opt.kind === 'daily' && opt.practice);
       if (opt.kind === 'night') night = null;
     }
@@ -1021,9 +1021,9 @@
     });
 
     /* ---------- 排行榜（内测，客户端 9.51+） ----------
-       今日火锅比当天（所有人同一锅）；翻台挑战、饭局夜比本周 / 总榜；阵营赛比两派本周前 100 名总分。
+       剧本局（新号第一局就能上榜）、翻台挑战、饭局夜比本周 / 总榜；今日火锅比当天（所有人同一锅）。
        昵称只用平台返回的，没有就叫「神秘食客」；不采集、不存用户资料。 */
-    var rkTab = 'daily', rkPeriod = 'day', rankFrom = 'home';
+    var rkTab = 'round', rkPeriod = 'week', rankFrom = 'home';
     function nick(x) { return x.nickname || '神秘食客'; }
     function myText(m) {
       if (!m) return '暂时查不到';
@@ -1065,13 +1065,12 @@
       });
       pc.classList.toggle('hidden', !(T && T.periods.length > 1));
       me.className = 'rk-me hidden';
-      $('rk-fac').textContent = profile.faction ? HP.FACTIONS[profile.faction].name : '未选阵营';
       if (!P.rankOk) {
         // 当前环境用不了：说清楚去哪儿能看，不画假榜单
         pc.classList.add('hidden');
         body.innerHTML = '';
         body.appendChild(el('div', 'rk-off', '<b>排行榜要在小红书 App 里看</b>' + (HP.RANK_NOTE[P.rankState] || '这个版本的小红书还没开通排行榜') +
-          '<small>今日火锅、翻台挑战、饭局夜都会上榜，阵营赛比两派总分</small>'));
+          '<small>剧本局（火锅日记的局也算）、今日火锅、翻台挑战、饭局夜都会上榜</small>'));
         return;
       }
       body.innerHTML = '<div class="rk-note">加载中…</div>';
@@ -1080,39 +1079,11 @@
         if (stale()) return;
         body.innerHTML = '<div class="rk-note">排行榜暂时打不开' + (P.rankOk ? '，稍后再试' : '（这个版本还没开通）') + '</div>';
       };
-      if (tab === 'fac') {
-        if (!profile.faction) {
-          body.innerHTML = '<div class="rk-note">选一个阵营：之后剧本局、饭局夜的成绩都给你的阵营加分，每周一 0 点重置</div>';
-          var pk = el('div', 'rk-pick');
-          Object.keys(HP.FACTIONS).forEach(function (k) {
-            var b = el('button', 'cta small'); b.type = 'button'; b.textContent = HP.FACTIONS[k].name; b.setAttribute('data-fac', k); pk.appendChild(b);
-          });
-          body.appendChild(pk);
-          return;
-        }
-        var ks = Object.keys(HP.FACTIONS);
-        Promise.all(ks.map(function (k) { return P.rankList(HP.FACTIONS[k].board, 'week'); })).then(function (lists) {
-          if (stale()) return;
-          body.innerHTML = '';
-          var vsb = el('div', 'rk-vs');
-          ks.forEach(function (k, i) {
-            var sum = lists[i].reduce(function (a, x) { return a + (x.score || 0); }, 0);
-            var d = el('div'); d.style.color = HP.FACTIONS[k].color;
-            d.appendChild(el('b')).textContent = sum;
-            d.appendChild(el('small')).textContent = HP.FACTIONS[k].name + ' · 前 ' + lists[i].length + ' 人总分';
-            vsb.appendChild(d);
-          });
-          body.appendChild(vsb);
-          body.appendChild(el('div', 'rk-note', '本周' + HP.FACTIONS[profile.faction].name + '排行 · 每周一 0 点（北京时间）重置'));
-          body.appendChild(rows(lists[ks.indexOf(profile.faction)], null));
-        }).catch(fail);
-        return;
-      }
       Promise.all([P.rankList(T.board, per), P.myRank(T.board, per).catch(function () { return null; })]).then(function (x) {
         if (stale()) return;
         var list = x[0], m = x[1];
         body.innerHTML = '';
-        body.appendChild(el('div', 'rk-note', T.name + (per === 'day' ? '' : ' · ' + HP.PERIOD[per]) + ' · ' + HP.RESET[per]));
+        body.appendChild(el('div', 'rk-note', T.name + (per === 'day' ? '' : ' · ' + HP.PERIOD[per]) + ' · ' + HP.RESET[per] + (T.desc ? '<br>' + T.desc : '')));
         body.appendChild(rows(list, m));
         // 我：钉在底部，带「去冲榜」
         me.innerHTML = '';
@@ -1127,41 +1098,48 @@
     }
     function openRank(tab, from) {
       rankFrom = from || 'home';
-      rkTab = tab || 'daily'; rkPeriod = HP.RANKS[rkTab] ? HP.RANKS[rkTab].periods[0] : 'week';
+      rkTab = HP.RANKS[tab] ? tab : 'round'; rkPeriod = HP.RANKS[rkTab].periods[0];
       hideOverlays(); show('rank'); $('rank').scrollTop = 0; renderRank();
     }
-    $('h-rank').addEventListener('click', function () { openRank('daily', 'home'); });
+    $('h-rank').addEventListener('click', function () { openRank(this.getAttribute('data-tab') || 'round', 'home'); });
     $('r-rank').addEventListener('click', function () { openRank(this.getAttribute('data-tab'), 'result'); });
     $('rank').addEventListener('click', function (e) {
       var t = e.target.closest ? e.target.closest('[data-rk]') : null;
       if (t) {
-        rkTab = t.getAttribute('data-rk'); rkPeriod = HP.RANKS[rkTab] ? HP.RANKS[rkTab].periods[0] : 'week';
+        rkTab = t.getAttribute('data-rk'); rkPeriod = HP.RANKS[rkTab].periods[0];
         renderRank(); return;
       }
       var pp = e.target.closest ? e.target.closest('[data-per]') : null;
       if (pp) { rkPeriod = pp.getAttribute('data-per'); renderRank(); return; }
-      var f = e.target.closest ? e.target.closest('[data-fac]') : null;
-      if (f) { profile.faction = f.getAttribute('data-fac'); saveProfile(); msg('加入了' + HP.FACTIONS[profile.faction].name); renderRank(); return; }
       var g = e.target.closest ? e.target.closest('[data-go]') : null;
       if (g) {
         var mode = g.getAttribute('data-go');
         if (!HP.modeOpen(profile, mode)) { msg('火锅日记第 ' + HP.modeDay[mode] + ' 天解锁'); return; }
         hide('rank'); night = null;
-        if (mode === 'daily') begin({ kind: 'daily' });
+        if (mode === 'diary') begin(diaryTarget());
+        else if (mode === 'daily') begin({ kind: 'daily' });
         else if (mode === 'rush') begin({ kind: 'scene', scene: 'rush' });
         else begin({ kind: 'night' });
       }
     });
-    /* 首页入口：显示今天的名次（缓存 45 秒，不会每次回首页都请求） */
+    /* 首页入口：今日火锅上榜了就显示今日名次，否则显示剧本局本周名次（缓存 45 秒，不会每次回首页都请求） */
     function homeRank() {
       var b = $('h-rank'), note = HP.RANK_NOTE[P.rankState];
       b.classList.toggle('hidden', !P.rankOk && !note);
+      b.setAttribute('data-tab', 'round');
       if (!P.rankOk) { if (note) $('h-rank-text').textContent = note; return; }
-      P.myRank(HP.BOARDS.daily, 'day').then(function (m) {
+      var dOpen = HP.modeOpen(profile, 'daily');
+      Promise.all([
+        P.myRank(HP.BOARDS.round, 'week').catch(function () { return null; }),
+        dOpen ? P.myRank(HP.BOARDS.daily, 'day').catch(function () { return null; }) : null
+      ]).then(function (x) {
         if (!P.rankOk) { b.classList.add('hidden'); return; }
-        $('h-rank-text').textContent = m && m.status === 'EXACT' ? '今日火锅第 ' + m.rank + ' 名 · ' + m.score + ' 分'
-          : m && m.status === 'OVER_LIMIT' ? '今日火锅 500 名外，再冲一冲' : '今日火锅还没上榜 · 翻台挑战 · 饭局夜';
-      }).catch(function () { if (!P.rankOk) b.classList.add('hidden'); });
+        var rd = x[0], dy = x[1], t = $('h-rank-text');
+        if (dy && dy.status === 'EXACT') { t.textContent = '今日火锅第 ' + dy.rank + ' 名 · ' + dy.score + ' 分'; b.setAttribute('data-tab', 'daily'); }
+        else if (rd && rd.status === 'EXACT') t.textContent = '剧本局本周第 ' + rd.rank + ' 名 · ' + rd.score + ' 分';
+        else if (rd && rd.status === 'OVER_LIMIT') t.textContent = '剧本局本周 500 名外，再冲一冲';
+        else t.textContent = '还没上榜：吃完一局剧本局就能上榜';
+      });
     }
     /* 结算页：提交完成绩再查名次，「再来一局」下面一行写名次和离上一名差多少 */
     function resultRank(tab, subs, score, practice) {
