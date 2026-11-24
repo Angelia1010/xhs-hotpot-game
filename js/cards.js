@@ -58,7 +58,7 @@ var HP = window.HP = window.HP || {};
   /* 本局目标进度：{ cur, need, done, text } */
   HP.cardProgress = function (card, s) {
     if (!card) return null;
-    var cur, done, text;
+    var cur, done;
     if (card.id === 'blackout') cur = s.perfect;
     else if (card.id === 'freemaodu') cur = s.authentic;
     else if (card.id === 'aa') {
@@ -69,7 +69,6 @@ var HP = window.HP = window.HP || {};
       return { cur: s.cardGoal, need: card.need, done: done, text: '给寿星夹 ' + Math.min(s.cardGoal, card.need) + ' / ' + card.need + (s.songBreak ? ' · 唱歌时动筷了' : '') };
     } else cur = s.cardGoal;
     done = cur >= card.need;
-    text = card.goal.replace(/\d+/, '') ;
     return { cur: cur, need: card.need, done: done, text: card.goal + ' ' + Math.min(cur, card.need) + '/' + card.need };
   };
 

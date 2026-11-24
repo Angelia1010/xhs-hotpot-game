@@ -85,7 +85,7 @@ var HP = window.HP = window.HP || {};
     ctx.font = '600 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.75)';
     ctx.fillText('本局得分', W / 2, 560);
     ctx.font = '900 96px ' + FONT; ctx.fillStyle = '#ffd35c';
-    ctx.fillText(String(s.score) + (extra.isBest ? '' : ''), W / 2, 628);
+    ctx.fillText(String(s.score), W / 2, 628);
     if (extra.stars != null) {
       ctx.font = '900 36px ' + FONT;
       for (var si = 0; si < 3; si++) { ctx.fillStyle = si < extra.stars ? '#ffd35c' : 'rgba(255,240,220,0.22)'; ctx.fillText('★', W / 2 - 50 + si * 50 - (extra.isBest ? 90 : 0), 690); }

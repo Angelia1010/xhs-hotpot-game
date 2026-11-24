@@ -185,7 +185,7 @@ var HP = window.HP = window.HP || {};
                    card: C ? C.id : null, cardGoal: 0, selfSpend: 0, dietCheat: 0, songBreak: 0, songOk: 0, propEat: 0, bdId: null };
     this.initDiners();
     // 饭局卡的开局设置
-    this.flickT = 3; this.songDone = false; this.propDone = false; this.propAt = 20 + Math.random() * 10;
+    this.flickT = 3; this.songDone = false; this.propDone = false; this.propAt = 20 + this.rng() * 10;
     this.bd = C && C.id === 'birthday' && this.diners.length ? this.diners[Math.floor(this.rng() * this.diners.length)] : null;
     if (this.bd) this.stats.bdId = this.bd.id;
     this.waitBoss = this.scene.bossFirst || 0;
@@ -312,7 +312,7 @@ var HP = window.HP = window.HP || {};
     if (r.authentic) s.authentic++;
     if (r.kind === 'raw') s.raw++;
     if (r.kind === 'over') s.over++;
-    if (!this.hints && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
+    if (!this.hintsOn() && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
     var cid = this.mode === 'play' && this.card ? this.card.id : null;
     if (cid === 'freemaodu' && r.authentic && gain > 0) gain *= 2;
     if (cid === 'proposal' && this.event && this.event.type === 'proposal' && r.kind !== 'raw') {
@@ -626,6 +626,8 @@ var HP = window.HP = window.HP || {};
   };
 
   /* 饭局卡的进行中效果：停电时火力忽大忽小、求婚、生日歌 */
+  /* 火候提示是否真的看得见：停电局一律看不见（不改玩家自己的开关） */
+  Game.prototype.hintsOn = function () { return this.hints && !(this.mode === 'play' && this.running && this.card && this.card.id === 'blackout'); };
   Game.prototype.updateCard = function (dt) {
     var C = this.card; if (!C) return;
     if (C.id === 'blackout' && !this.event) {
@@ -968,7 +970,7 @@ var HP = window.HP = window.HP || {};
       var rot = f.rot + Math.sin(f.t * 0.7 + f.ph) * 0.06 * heat;
       var dropS = f.drop > 0 ? 1 + f.drop * 1.6 : 1;
       this.drawFood(ctx, f.type, p.x + bx, p.y + by, this.foodWeights(f), rot, f.depth, dropS, 1, this.pot.tint[f.cell]);
-      if (this.hints && f.depth < 0.5) this.drawHint(ctx, f, p.x + bx, p.y + by);
+      if (this.hintsOn() && f.depth < 0.5) this.drawHint(ctx, f, p.x + bx, p.y + by);
       // 正好熟的那几秒：菜上会闪一颗小星星（关了提示也有，靠看）
       var FF = HP.FOODS[f.type];
       if (f.d >= FF.a && f.d <= FF.b && f.depth < 0.5) this.drawTwinkle(ctx, p.x + bx + FF.size * this.potSize * 0.32, p.y + by - FF.size * this.potSize * 0.28, f.t + f.ph);
@@ -1008,7 +1010,7 @@ var HP = window.HP = window.HP || {};
       }
       var lift = h.up ? -8 * this.unit : 0;
       this.drawFood(ctx, h.type, hp.x, hp.y + lift, this.foodWeights(h), h.rot + Math.sin(this.time * 9) * 0.05, h.depth, h.up ? 1.12 : 1.02, 1, this.pot.tint[h.lastCell]);
-      if (this.hints && h.entered) this.drawHint(ctx, h, hp.x, hp.y + lift);
+      if (this.hintsOn() && h.entered) this.drawHint(ctx, h, hp.x, hp.y + lift);
       this.drawSprite(ctx, S.chopsticks_closed, [0.492, 0.0], { x: hp.x, y: hp.y + lift }, chopRot, chopH, 1);
       if (F.dips && h.entered) this.drawDips(ctx, h, hp.x, hp.y - F.size * this.potSize * 0.9);
       else if (h.entered && h.d < 0.3) this.drawLabel(ctx, hp.x, hp.y - F.size * this.potSize * 0.9, '按住涮，松手捞起');

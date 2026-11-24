@@ -154,7 +154,7 @@ var HP = window.HP = window.HP || {};
     if (r.kind === 'perfect') { s.perfect++; s.perfectBy[f.type] = (s.perfectBy[f.type] || 0) + 1; }
     if (r.kind === 'raw') s.rawServed++;
     if (r.kind === 'over') s.over++;
-    if (!this.hints && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
+    if (!this.hintsOn() && gain > 0) gain = Math.round(gain * HP.HINT_OFF_BONUS);
     if (this.waitBoss > 0 && this.mode === 'play') { gain -= 30; s.rude++; }
     s.served++; d.fed++;
     s.servedTo[d.id] = (s.servedTo[d.id] || 0) + 1;

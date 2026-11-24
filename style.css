@@ -352,3 +352,4 @@ body {
   .plates { grid-gap: 2px 6px; }
   .plate span { font-size: 11px; }
 }
+.tool.locked { opacity: 0.45; }

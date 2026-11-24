@@ -346,9 +346,15 @@
     window.addEventListener('pointerup', endPot);
     window.addEventListener('pointercancel', endPot);
 
+    /* 火候提示按钮：停电局里按钮锁住（提示本来就看不见），局后自动恢复玩家自己的设置 */
+    function syncHintBtn() {
+      var on = game.hintsOn(), dark = game.mode === 'play' && game.card && game.card.id === 'blackout' && game.running !== false;
+      $('btn-hint').classList.toggle('off', !on); $('pro').classList.toggle('show', !on);
+      $('btn-hint').classList.toggle('locked', !!dark);
+    }
     $('btn-hint').addEventListener('click', function () {
-      game.hints = !game.hints; this.classList.toggle('off', !game.hints);
-      $('pro').classList.toggle('show', !game.hints);
+      if (game.mode === 'play' && game.card && game.card.id === 'blackout' && game.running) { msg('停电了，火候提示看不见，只能靠菜上的小星星'); return; }
+      game.hints = !game.hints; syncHintBtn();
     });
     $('btn-sound').addEventListener('click', function () {
       audio.unlock(); this.classList.toggle('off', !audio.toggle());
@@ -382,7 +388,6 @@
       audio.unlock(); hideOverlays(); pending = null;
       current = opt;
       var S = HP.SCENES[opt.scene], D = opt.daily ? HP.dailySetup(HP.dayKey()) : null;
-      buildTray(D ? D.menu : HP.getLoadout(profile));
       var pot = D ? D.pot : profile.pot, sid = D ? D.scene : opt.scene;
       S = HP.SCENES[sid];
       // 饭局卡：每日一锅所有人同一张；托盘补上这张卡要用的菜
@@ -404,8 +409,7 @@
       if (D) $('hud-sub').textContent = HP.issueOf(HP.dayKey()) + (current.practice ? ' · 练习' : '') + ' · ' + S.name;
       game.reset();
       // 停电：火候提示看不见
-      if (card && card.id === 'blackout') { current.hints = game.hints; game.hints = false; $('btn-hint').classList.add('off'); $('pro').classList.add('show'); }
-      if (card) showFlip(card, function () { game.running = true; }); else game.running = true;
+      if (card) showFlip(card, function () { game.running = true; syncHintBtn(); }); else { game.running = true; syncHintBtn(); }
       if (S.bossFirst) hooks.onEvent('wait', WAIT, true);
       // 第一局开场在锅上标出火力；一人食飘一句提示
       if (!profile.seen['heat_' + pot]) { profile.seen['heat_' + pot] = 1; saveProfile(); game.heatLabels = 3.5; }
@@ -497,7 +501,7 @@
       var ctx = { scene: sceneId, daily: !!current.daily, practice: !!current.practice };
       var card = current.card ? HP.cardById(current.card) : null;
       var stars = HP.starsOf(s, card); s.stars = stars.filter(Boolean).length;
-      if (current.hints != null) { game.hints = current.hints; current.hints = null; $('btn-hint').classList.toggle('off', !game.hints); $('pro').classList.toggle('show', !game.hints); }
+      setTimeout(syncHintBtn, 0);
       var r = HP.settle(profile, s, ctx);
       var p = HP.persona(s);
       var near = HP.nearPersona(s, p, profile.personas);
