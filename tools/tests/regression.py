@@ -21,9 +21,9 @@ PICK_FIRST_CARD = "(()=>{var b=document.querySelector('#ch-list .ch-card'); if(b
 # 模拟小红书容器：所有调用记到 window.__calls
 XHS_MOCK = r"""
 (function(){
-  window.__calls=[]; var store={}, rankTries=0;
+  window.__calls=[]; var store={}, rankTries=0, best={};
   function ok(n,x){ var r={errMsg:n+':ok'}; for(var k in (x||{})) r[k]=x[k]; return Promise.resolve(r); }
-  window.xhs={ miniTool:{
+  window.xhs={ launchOptions:{ miniToolEnv:{ buildVersion: 9562004 } }, miniTool:{
     setStorage:function(o){ store[o.key]=o.data; return ok('setStorage'); },
     getStorage:function(o){ return store[o.key]!=null? ok('getStorage',{data:store[o.key]}) : Promise.reject({errMsg:'getStorage:fail'}); },
     getWindowInfo:function(){ return ok('getWindowInfo',{windowWidth:390,windowHeight:844,statusBarHeight:44,safeArea:{top:44,bottom:810},
@@ -34,13 +34,15 @@ XHS_MOCK = r"""
     writeTempFile:function(o){ __calls.push(['temp',o.data.slice(0,22)]); return ok('writeTempFile',{filePath:'ttfile://tmp/card.jpg'}); },
     postNote:function(o){ __calls.push(['post',o]); return ok('postNote'); },
     share:function(o){ __calls.push(['share',o.type]); return ok('share'); },
-    submitScore:function(o){ __calls.push(['submit',o.board,o.score]); return ok('submitScore',{score:o.score}); },
+    submitScore:function(o){ __calls.push(['submit',o.board,o.score]); best[o.board]=Math.max(best[o.board]==null?-1e9:best[o.board],o.score); return ok('submitScore',{score:best[o.board]}); },
     getRankList:function(o){ __calls.push(['list',o.board,o.period]); if(rankTries++===0) return Promise.reject({errMsg:'getRankList:fail',errCode:2002});
-      return ok('getRankList',{data:[{rank:1,score:3200,nickname:'小红薯'},{rank:2,score:2100,nickname:null}]}); },
-    getMyRank:function(o){ return ok('getMyRank',{status:'EXACT',rank:7,score:1500}); }
+      var d=[]; for(var i=1;i<=100;i++) d.push({rank:i,score:5000-i*30,nickname:i%9===0?null:'小红薯'+i}); return ok('getRankList',{data:d}); },
+    getMyRank:function(o){ __calls.push(['my',o.board,o.period]); if(window.__deny) return Promise.reject({errMsg:'getMyRank:fail',errCode:1005});
+      return ok('getMyRank', window.__my || {status:'EXACT',rank:7,score:4790}); }
   }, AI:{ createModel:function(n){ return { generateText:function(o){ __calls.push(['ai',n,o.messages.length]);
       return Promise.resolve({choices:[{message:{content:'涮得像在做实验，吃得像在赶飞机'}}]}); } }; } } };
 })();"""
+XHS_OLD_CLIENT = XHS_MOCK.replace('9562004', '9500001')
 XHS_NO_STORAGE = "window.xhs={miniTool:{vibrateShort:function(){return Promise.resolve({})}}};"
 
 async def page(b, vw=390, vh=844, init=None):
@@ -144,7 +146,7 @@ async def main():
             await pg.close()
 
         # ---------- 4. 饭局夜：三桌、卡一路叠加、总分 ----------
-        pg, errs = await page(b)
+        pg, errs = await page(b, init=XHS_MOCK)
         await js(pg, VETERAN)
         await js(pg, "document.getElementById('btn-night').click()"); await pg.wait_for_timeout(400)
         scores, stacks, scenes = [], [], []
@@ -158,10 +160,12 @@ async def main():
         tot = await js(pg, "+document.getElementById('r-score').textContent")
         ok('饭局夜：朋友局→团建→家宴，卡叠到 3 张，总分=三桌之和', scenes == ['bros', 'team', 'family'] and stacks == [1, 2, 3] and tot >= 300 + 400 + 500, (scenes, stacks, tot))
         ok('饭局夜记最高分', await js(pg, "HP.profile().bestBy.night") == tot)
+        await pg.wait_for_timeout(2500)
+        ok('饭局夜整晚总分提交到 3 号榜（本周名次显示在结算页）', await js(pg, "__calls.some(c=>c[0]==='submit'&&c[1]===3&&c[2]===%d)" % tot) and '饭局夜本周排名' in await js(pg, "document.getElementById('r-rank').textContent"))
         ok('饭局夜无报错', not errs, errs[:3]); await pg.close()
 
         # ---------- 5. 翻台挑战：没有倒计时，离席 3 次结束 ----------
-        pg, errs = await page(b)
+        pg, errs = await page(b, init=XHS_MOCK)
         await js(pg, VETERAN)
         await js(pg, "document.getElementById('btn-rush').click()"); await pg.wait_for_timeout(1500)
         e1 = json.loads(await js(pg, "JSON.stringify({endless:HP.game.endless, tl:HP.game.timeLeft, run:HP.game.running})"))
@@ -171,6 +175,7 @@ async def main():
         await pg.wait_for_timeout(1200)
         e2 = json.loads(await js(pg, "JSON.stringify({run:HP.game.running, res:!document.getElementById('result').classList.contains('hidden'), best:HP.profile().bestBy.rush, cell:document.querySelector('#r-img')!=null})"))
         ok('翻台挑战：200 秒还没结束，离席 3 次就结算', e1['endless'] and still and not e2['run'] and e2['res'], (e1, e2))
+        ok('翻台挑战成绩提交到 2 号榜', await js(pg, "__calls.some(c=>c[0]==='submit'&&c[1]===2)"))
         ok('翻台挑战无报错', not errs, errs[:3]); await pg.close()
 
         # ---------- 6. 每道解锁菜的特殊玩法（直接驱动游戏逻辑） ----------
@@ -297,21 +302,56 @@ async def main():
         keep_off = await js(pg, "__calls.some(c=>c[0]==='keep'&&c[1]===false)")
         ok('对局中保持亮屏、结束关掉', keep_on and keep_off)
         ok('今日火锅正式成绩提交排行榜', await js(pg, "__calls.some(c=>c[0]==='submit'&&c[1]===1)"))
+        await pg.wait_for_timeout(2500)
+        rr = await js(pg, "document.getElementById('r-rank').classList.contains('hidden') ? '' : document.getElementById('r-rank').textContent")
+        ok('结算页：今日排名 + 离上一名差多少', '今日火锅排名：第 7 名' in rr and '再多 31 分超过第 6 名' in rr, rr)
+        await js(pg, "document.getElementById('r-rank').click()"); await pg.wait_for_timeout(600)
+        ok('结算页点名次打开今日榜', await js(pg, "!document.getElementById('rank').classList.contains('hidden') && document.querySelectorAll('#rk-body .rk-row').length===100"))
+        await js(pg, "document.querySelector('#rank [data-close]').click()"); await pg.wait_for_timeout(300)
+        ok('从结算页打开的榜，返回回到结算页', await js(pg, "!document.getElementById('result').classList.contains('hidden')"))
         ok('AI 锐评显示在结算页', '赶飞机' in await js(pg, "document.getElementById('r-ai').textContent"))
         await js(pg, "document.getElementById('btn-post').click()"); await pg.wait_for_timeout(600)
         post = json.loads(await js(pg, "JSON.stringify(__calls.filter(c=>c[0]==='post').map(c=>c[1])[0]||null)"))
         ok('一键发笔记：标题≤20字、正文带格子图和挑战码、图片走临时文件',
            post and len(post['title']) <= 20 and '🟩' in post['content'] and '挑战码' in post['content'] and post['mediaInfo']['image_resources'][0]['url'].startswith('ttfile://') and post['pageType'] == 'photo_publish', post and {'title': post['title'], 'content': post['content'][:80]})
         await js(pg, "document.getElementById('btn-home').click()"); await pg.wait_for_timeout(300)
-        ok('首页显示排行榜入口、今日格子图', await js(pg, "!document.getElementById('btn-rank').classList.contains('hidden') && document.getElementById('d-grid').textContent.indexOf('🟩')>=0"))
-        await js(pg, "document.getElementById('btn-rank').click()"); await pg.wait_for_timeout(2200)
-        ok('排行榜：未就绪 2002 退避重试后显示', '小红薯' in await js(pg, "document.getElementById('rk-body').textContent"))
+        await pg.wait_for_timeout(300)
+        ok('首页排行榜入口显示今日名次、今日格子图', await js(pg, "!document.getElementById('h-rank').classList.contains('hidden') && document.getElementById('h-rank-text').textContent.indexOf('第 7 名')>=0 && document.getElementById('d-grid').textContent.indexOf('🟩')>=0"),
+           await js(pg, "document.getElementById('h-rank-text').textContent"))
+        await js(pg, "document.getElementById('h-rank').click()"); await pg.wait_for_timeout(2200)
+        ok('排行榜：前 100 名、前三名有奖牌、昵称为空显示「神秘食客」', '小红薯1' in await js(pg, "document.getElementById('rk-body').textContent") and await js(pg, "document.querySelectorAll('#rk-body .rk-row.top1,#rk-body .rk-row.top2,#rk-body .rk-row.top3').length===3 && document.getElementById('rk-body').textContent.indexOf('神秘食客')>=0"))
+        me = json.loads(await js(pg, "JSON.stringify({row:(document.querySelector('#rk-body .rk-row.me')||{}).textContent, pin:document.getElementById('rk-me').textContent})"))
+        ok('我的那一行高亮，底部钉着我的名次和差距', me['row'] and '（我）' in me['row'] and '我 · 第 7 名' in me['pin'] and '再多 31 分' in me['pin'], me)
+        await js(pg, "document.querySelector('[data-rk=rush]').click()"); await pg.wait_for_timeout(500)
+        await js(pg, "document.querySelector('#rk-per [data-per=all]').click()"); await pg.wait_for_timeout(500)
+        ok('翻台榜：本周 / 总榜切换', await js(pg, "__calls.some(c=>c[0]==='list'&&c[1]===2&&c[2]==='week') && __calls.some(c=>c[0]==='list'&&c[1]===2&&c[2]==='all') && document.querySelector('#rk-per .on').textContent==='总榜'"))
+        await js(pg, "document.querySelector('[data-rk=night]').click()"); await pg.wait_for_timeout(500)
+        ok('饭局夜榜查 3 号榜本周', await js(pg, "__calls.some(c=>c[0]==='list'&&c[1]===3&&c[2]==='week')"))
+        await js(pg, "document.querySelector('[data-rk=daily]').click()"); await pg.wait_for_timeout(500)
+        await js(pg, "document.querySelector('#rk-me [data-go]').click()"); await pg.wait_for_timeout(2600)
+        ok('「去冲榜」直接开今日火锅', await js(pg, "HP.game.running && document.getElementById('hud-scene').textContent==='今日火锅'"))
+        await js(pg, "document.getElementById('btn-pause').click()"); await pg.wait_for_timeout(200)
+        await js(pg, "document.getElementById('btn-quit').click()"); await pg.wait_for_timeout(300)
+        await js(pg, "document.getElementById('h-rank').click()"); await pg.wait_for_timeout(600)
         await js(pg, "document.querySelector('[data-rk=fac]').click()"); await pg.wait_for_timeout(300)
         await js(pg, "document.querySelector('[data-fac=yuanyang]').click()"); await pg.wait_for_timeout(800)
         ok('阵营赛：选阵营后显示两派总分', '鸳鸯派' in await js(pg, "document.getElementById('rk-body').textContent") and await js(pg, "HP.profile().faction") == 'yuanyang')
         saved = await js(pg, "HP.platform.load('profile').then(p=>p&&p.faction)")
         ok('存档写进小红书 Storage', saved == 'yuanyang', saved)
         ok('模拟容器无报错', not errs, errs[:3]); await pg.close()
+
+        # 客户端版本低于 9.51、或者没授权：排行榜整块不出现，也不提交
+        pg, errs = await page(b, init=XHS_OLD_CLIENT)
+        await js(pg, VETERAN)
+        old = await js(pg, "HP.platform.rankOk===false && document.getElementById('h-rank').classList.contains('hidden')")
+        await js(pg, "document.getElementById('btn-daily').click()"); await pg.wait_for_timeout(2600)
+        await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1500)
+        ok('客户端 9.50：不显示排行榜、不提交成绩', old and await js(pg, "!__calls.some(c=>c[0]==='submit') && document.getElementById('r-rank').classList.contains('hidden')"))
+        await pg.close()
+        pg, errs = await page(b, init=XHS_MOCK + "window.__deny=1;")
+        await pg.wait_for_timeout(500)
+        ok('没勾「用户头像昵称授权」（1005）：首页入口自动藏起来', await js(pg, "HP.platform.rankOk===false && document.getElementById('h-rank').classList.contains('hidden')"))
+        await pg.close()
 
         pg, errs = await page(b, init=XHS_NO_STORAGE)
         ok('小红书版本太低存不了档：首页提示', await js(pg, "!document.getElementById('h-warn').classList.contains('hidden')"))

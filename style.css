@@ -486,3 +486,41 @@ body {
 .pause-card .r-row { margin-top: 12px; }
 .ghost.wide { display: block; width: 100%; margin-top: 14px; padding: 12px 0; }
 #ch-back { display: block; margin: 10px auto 0; }
+
+/* 排行榜：首页入口、周期切换、前三名、本人那一行钉在底部、结算页名次 */
+.rank-card { display: flex; align-items: center; width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 16px; text-align: left; font: inherit; color: #fff6ea;
+  background: linear-gradient(160deg, rgba(120,60,6,0.85), rgba(60,14,6,0.85)); border: 1px solid rgba(255,211,92,0.55); }
+.rank-card.hidden { display: none; }
+.rk-cup { flex: none; position: relative; width: 22px; height: 20px; margin-right: 10px; border-radius: 0 0 11px 11px; background: linear-gradient(#ffe48a, #ffab1f); }
+.rk-cup:after { content: ''; position: absolute; left: 7px; bottom: -6px; width: 8px; height: 5px; border-radius: 1px; background: #ffab1f; }
+.rk-txt { flex: 1; min-width: 0; }
+.rk-txt b { display: block; font-size: 15px; }
+.rk-txt small { display: block; margin-top: 2px; font-size: 11px; color: #ffe2a8; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.rank-card em { flex: none; margin-left: 8px; font-style: normal; font-size: 12px; font-weight: 800; color: #ffd35c; }
+.rk-per { display: flex; justify-content: center; margin: -2px 0 6px; }
+.rk-per.hidden { display: none; }
+.rk-per button { margin: 0 4px; padding: 4px 14px; border-radius: 12px; font: inherit; font-size: 12px; font-weight: 800; color: rgba(255,240,220,0.7); background: rgba(0,0,0,0.3); border: 1px solid rgba(255,200,140,0.25); }
+.rk-per button.on { color: #3a0d00; background: #ffd35c; border-color: transparent; }
+.rk-row .n { flex: none; }
+.rk-row.top1, .rk-row.top2, .rk-row.top3 { font-weight: 800; }
+.rk-row.top1 .n, .rk-row.top2 .n, .rk-row.top3 .n { color: #3a0d00; width: 22px; height: 22px; margin-right: 12px; line-height: 22px; text-align: center; border-radius: 11px; font-size: 12px; }
+.rk-row.top1 .n { background: linear-gradient(#ffe48a, #ffb000); }
+.rk-row.top2 .n { background: linear-gradient(#f2f2f2, #b9b9b9); }
+.rk-row.top3 .n { background: linear-gradient(#f0b27a, #b8692e); }
+.rk-row.me { background: rgba(160,50,8,0.9); border: 1px solid rgba(255,211,92,0.7); }
+.rk-me { position: -webkit-sticky; position: sticky; bottom: 0; display: flex; align-items: center; margin: 8px -4px 0; padding: 10px 12px; border-radius: 14px;
+  background: linear-gradient(160deg, rgba(150,40,8,0.98), rgba(70,12,4,0.98)); border: 1px solid rgba(255,211,92,0.6); box-shadow: 0 -6px 18px rgba(0,0,0,0.45); }
+.rk-me.hidden { display: none; }
+.rk-me-info { flex: 1; min-width: 0; text-align: left; }
+.rk-me-info b { display: block; font-size: 14px; color: #ffd35c; }
+.rk-me-info small { display: block; margin-top: 2px; font-size: 11px; color: #ffe9c9; }
+.rk-me .cta.small { flex: none; width: auto; margin: 0 0 0 10px; padding: 9px 16px; font-size: 14px; }
+.r-rank { display: flex; align-items: center; width: 100%; margin-top: 10px; padding: 9px 12px; border-radius: 14px; text-align: left; font: inherit; color: #fff6ea;
+  background: linear-gradient(160deg, rgba(120,60,6,0.9), rgba(60,14,6,0.9)); border: 1px solid rgba(255,211,92,0.55); }
+.r-rank.hidden { display: none; }
+.r-rank span { flex: 1; min-width: 0; }
+.r-rank b { display: block; font-size: 14px; color: #ffd35c; }
+.r-rank small { display: block; margin-top: 2px; font-size: 11px; color: #ffe9c9; }
+.r-rank em { flex: none; margin-left: 8px; font-style: normal; font-size: 12px; font-weight: 800; color: #ffd35c; }
+.hd-back { flex: none; margin-right: 8px; padding: 4px 10px 4px 6px; border: 0; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 800; color: #ffd35c; background: rgba(0,0,0,0.3); }
+.sheet-head .hd-back + b { flex: 1; }

@@ -115,6 +115,8 @@
         <button id="btn-rush" class="mode-card" type="button"><b>翻台挑战</b><small>没有倒计时，离席 3 次结束</small><em id="m-rush"></em></button>
       </div>
 
+      <button id="h-rank" class="rank-card hidden" type="button"><span class="rk-cup"></span><span class="rk-txt"><b>排行榜</b><small id="h-rank-text">今日火锅 · 翻台挑战 · 饭局夜</small></span><em>看榜 ›</em></button>
+
       <div id="scenes" class="scenes"></div>
 
       <div class="home-nav">
@@ -123,7 +125,6 @@
       </div>
       <div class="home-nav">
         <button id="btn-code" class="ghost" type="button">输入挑战码</button>
-        <button id="btn-rank" class="ghost hidden" type="button">排行榜</button>
       </div>
       <button id="btn-howto" class="link" type="button">怎么玩</button>
       <div id="h-ver" class="ver"></div>
@@ -235,9 +236,11 @@
 
   <section id="rank" class="overlay panel hidden">
     <div class="sheet">
-      <div class="sheet-head"><b>排行榜</b><span id="rk-fac" class="chip"></span></div>
-      <div class="tabs"><button class="tab on" data-rk="daily" type="button">今日火锅</button><button class="tab" data-rk="rush" type="button">翻台挑战</button><button class="tab" data-rk="fac" type="button">阵营赛</button></div>
+      <div class="sheet-head"><button class="hd-back" data-close="rank" type="button">‹ 返回</button><b>排行榜</b><span id="rk-fac" class="chip"></span></div>
+      <div class="tabs"><button class="tab on" data-rk="daily" type="button">今日火锅</button><button class="tab" data-rk="rush" type="button">翻台</button><button class="tab" data-rk="night" type="button">饭局夜</button><button class="tab" data-rk="fac" type="button">阵营赛</button></div>
+      <div id="rk-per" class="rk-per hidden"></div>
       <div id="rk-body" class="c-list"></div>
+      <div id="rk-me" class="rk-me hidden"></div>
       <button class="ghost close" data-close="rank" type="button">返回</button>
     </div>
   </section>
@@ -263,6 +266,7 @@
       </div>
       <div id="r-vs" class="r-vs hidden"></div>
       <button id="btn-again" class="cta again" type="button">再来一局</button>
+      <button id="r-rank" class="r-rank hidden" type="button"></button>
       <div id="r-day" class="r-day hidden"></div>
       <button id="r-next" class="r-next hidden" type="button"><span id="r-next-text"></span><i><b id="r-next-bar"></b></i></button>
       <div id="r-loss" class="r-loss hidden"></div>

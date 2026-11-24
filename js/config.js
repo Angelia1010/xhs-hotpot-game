@@ -78,7 +78,7 @@ HP.slotOf = function (type) { return HP.FOODS[type].special === 'bulky' ? 2 : 1;
 HP.FOOD_ORDER = ['beef', 'tenderbeef', 'maodu', 'strawberry_maodu', 'duckintestine', 'goose', 'kidney', 'huanghou',
   'shrimp', 'beefball', 'duckblood', 'luncheon', 'tofu', 'potato', 'lotus',
   'lettuce', 'gongcai', 'napa', 'enoki', 'shiitake', 'wintermelon', 'jianshouqing'];
-HP.VERSION = '1.3.1';
+HP.VERSION = '1.3.2';
 HP.RULES = 5;   // 计分规则版本：改了计分就 +1，旧版最高分作废重算
 HP.CROWD = { free: 6, min: 0.3 };   // 锅里超过 6 块菜，火力按 6/块数 分摊（汤不滚了），下再多也不会熟得更多
 /* 越贵的菜分越高：¥5 ×0.7 … ¥15 ×1.1 … ¥30 ×1.7 */
@@ -225,8 +225,16 @@ HP.DAY_CAP = 3;          // 每个自然日最多推进几天剧情（留个念�
 HP.DAY_STARS = 2;        // 拿到几颗星算「这一天过关」
 
 /* 阵营：九宫格派 vs 鸳鸯派（排行榜内测能力可用时才显示） */
-HP.FACTIONS = { jiugong: { name: '九宫格派', board: 3, color: '#ff7a3c' }, yuanyang: { name: '鸳鸯派', board: 4, color: '#ffd35c' } };
-HP.BOARDS = { daily: 1, rush: 2 };
+HP.FACTIONS = { jiugong: { name: '九宫格派', board: 4, color: '#ff7a3c' }, yuanyang: { name: '鸳鸯派', board: 5, color: '#ffd35c' } };
+/* 排行榜榜位（平台只给 1~5 号）：今日火锅只比当天（同一锅才公平）；翻台、饭局夜比本周 / 总榜 */
+HP.BOARDS = { daily: 1, rush: 2, night: 3 };
+HP.RANKS = {
+  daily: { board: 1, periods: ['day'], name: '今日火锅', go: 'daily' },
+  rush: { board: 2, periods: ['week', 'all'], name: '翻台挑战', go: 'rush' },
+  night: { board: 3, periods: ['week', 'all'], name: '饭局夜', go: 'night' }
+};
+HP.PERIOD = { day: '今日', week: '本周', month: '本月', all: '总榜' };
+HP.RESET = { day: '每天 0 点（北京时间）换榜', week: '每周一 0 点（北京时间）换榜', month: '每月 1 日换榜', all: '记历史最好成绩' };
 /* 每日一锅：按星期换剧本（0=周日） */
 HP.DAILY_SCENES = ['family', 'team', 'bros', 'date', 'team', 'bros', 'family'];
 

@@ -95,34 +95,68 @@ var HP = window.HP = window.HP || {};
     if (has('setKeepScreenOn')) call('setKeepScreenOn', { keepScreenOn: !!on }).catch(function () {});
   };
 
-  /* ---------- 排行榜（内测）：方法存在才显示；未授权 1005 / 1006 就整块隐藏 ---------- */
-  P.rankOk = has('submitScore') && has('getRankList') && has('getMyRank');
+  /* ---------- 客户端版本（文档 §3.6）：buildVersion 末 3 位是编译序号，9562004 = 9.56.2；拿不到就是「版本未知」 ---------- */
+  function readBuild(lo) {
+    var env = lo && lo.miniToolEnv, v = env && env.buildVersion;
+    if (typeof v !== 'number' && typeof v !== 'string') return null;
+    if (!/^[1-9]\d{6,}$/.test(String(v))) return null;
+    v = Number(v);
+    return Number.isSafeInteger(v) ? v : null;
+  }
+  P.build = null;
+  P.atLeast = function (min) { return P.build !== null && Math.floor(P.build / 1000) >= min; };
+
+  /* ---------- 排行榜（内测，客户端 9.51+）：版本够、方法齐才显示；未授权 1005 / 1006 / 白名单 10003 就整块隐藏 ----------
+     昵称由平台填充、只在返回值里出现，不采集也不存用户资料；榜单和本人名次本地缓存 45 秒，提交成绩后刷新 */
+  var RANK_FNS = ['submitScore', 'getRankList', 'getMyRank'];
+  P.rankOk = false;
+  P.ready = (function () {
+    var sync = readBuild(window.xhs && window.xhs.launchOptions);
+    if (sync !== null || !has('getLaunchOptions')) return Promise.resolve(sync);
+    return call('getLaunchOptions').then(readBuild).catch(function () { return null; });
+  })().then(function (b) {
+    P.build = b;
+    P.rankOk = P.atLeast(9510) && RANK_FNS.every(has);
+    return b;
+  });
   function code(e) { return e && (e.errCode != null ? e.errCode : e.code); }
   function denied(e) { var c = code(e); if (c === 1005 || c === 1006 || c === 10003) P.rankOk = false; return Promise.reject(e); }
-  P.submitScore = function (board, score) {
-    if (!P.rankOk) return Promise.resolve(null);
-    return call('submitScore', { board: board, score: score }).catch(denied).catch(function () { return null; });
-  };
-  /* 榜单没就绪（2002）退避重试 4 次；结果缓存 45 秒 */
   var cache = {};
-  P.rankList = function (board, period) {
-    if (!P.rankOk) return Promise.reject(new Error('unsupported'));
-    var key = board + ':' + period, c = cache[key];
-    if (c && Date.now() - c.t < 45000) return Promise.resolve(c.v);
+  function cached(key) { var c = cache[key]; return c && Date.now() - c.t < 45000 ? c.v : undefined; }
+  P.submitScore = function (board, score) {
+    if (!P.rankOk || !isFinite(score)) return Promise.resolve(null);
+    return call('submitScore', { board: board, score: score }).then(function (r) {
+      for (var k in cache) if (cache.hasOwnProperty(k) && k.split(':')[1] === String(board)) delete cache[k];
+      return r || {};
+    }).catch(denied).catch(function () { return null; });
+  };
+  /* 榜单没就绪（2002）退避重试 4 次（0.5 / 1 / 2 / 4 秒），不当空榜 */
+  function withRetry(name, args) {
     var tries = 0;
     function go() {
-      return call('getRankList', { board: board, period: period }).then(function (r) {
-        var v = (r && r.data) || []; cache[key] = { t: Date.now(), v: v }; return v;
-      }).catch(function (e) {
+      return call(name, args).catch(function (e) {
         if (code(e) === 2002 && tries < 4) { var w = 500 * Math.pow(2, tries++); return new Promise(function (res) { setTimeout(res, w); }).then(go); }
         return denied(e);
       });
     }
     return go();
+  }
+  P.rankList = function (board, period) {
+    if (!P.rankOk) return Promise.reject(new Error('unsupported'));
+    var key = 'L:' + board + ':' + period, v = cached(key);
+    if (v !== undefined) return Promise.resolve(v);
+    return withRetry('getRankList', { board: board, period: period }).then(function (r) {
+      v = (r && r.data) || []; cache[key] = { t: Date.now(), v: v }; return v;
+    });
   };
+  /* 本人名次：{ status: EXACT | OVER_LIMIT | NO_SCORE | NOT_PARTICIPATING, rank, score } */
   P.myRank = function (board, period) {
     if (!P.rankOk) return Promise.reject(new Error('unsupported'));
-    return call('getMyRank', { board: board, period: period }).catch(denied);
+    var key = 'M:' + board + ':' + period, v = cached(key);
+    if (v !== undefined) return Promise.resolve(v);
+    return withRetry('getMyRank', { board: board, period: period }).then(function (r) {
+      v = r || null; cache[key] = { t: Date.now(), v: v }; return v;
+    });
   };
 
   /* ---------- AI 文本生成（内测）：只在结算页调一次，10 秒没回就放弃 ---------- */
