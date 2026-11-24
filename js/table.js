@@ -10,7 +10,7 @@ var HP = window.HP = window.HP || {};
   function easeOut(t) { return 1 - (1 - t) * (1 - t); }
 
   /* ---------- 座位布局：锅上方留一条「对面」 ---------- */
-  G.seatBandH = function (w) { return this.scene && this.scene.diners ? clamp(w * 0.24, 76, 110) : 0; };
+  G.seatBandH = function (w, h) { return this.scene && this.scene.diners ? (h && h < 700 ? 66 : clamp(w * 0.24, 76, 110)) : 0; };
   G.layoutSeats = function () {
     var self = this, B = this.seatBand, R = B * 0.3;
     (this.diners || []).forEach(function (d) {

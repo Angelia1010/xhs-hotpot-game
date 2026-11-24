@@ -346,3 +346,9 @@ body {
 .bonds span i { font-style: normal; color: #ff7fa0; }
 .event.proposal { background: linear-gradient(160deg, rgba(210,80,130,0.96), rgba(110,20,60,0.96)); }
 .event.song { background: linear-gradient(160deg, rgba(230,110,150,0.96), rgba(140,40,90,0.96)); }
+/* 矮屏（16:9 老手机）：托盘缩小，给锅和同桌留地方 */
+@media (max-height: 700px) {
+  .plate img { max-width: 62px; }
+  .plates { grid-gap: 2px 6px; }
+  .plate span { font-size: 11px; }
+}

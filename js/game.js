@@ -135,7 +135,7 @@ var HP = window.HP = window.HP || {};
     this.lay = [w, h, top, bottom];
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
     // 有同桌的剧本：锅上方留一条「对面」坐人
-    this.seatBand = this.seatBandH(w); this.seatTop = top; top += this.seatBand;
+    this.seatBand = this.seatBandH(w, h); this.seatTop = top; top += this.seatBand;
     this.W = w; this.H = h; this.dpr = dpr;
     this.canvas.width = Math.round(w * dpr); this.canvas.height = Math.round(h * dpr);
     this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
