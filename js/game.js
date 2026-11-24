@@ -706,7 +706,10 @@ var HP = window.HP = window.HP || {};
       this.stats.balanced = true; this.stats.score += HP.BALANCE_BONUS;
     }
     if (this.trip > 0) this.trip -= dt;
-    if (!tut && this.timeLeft <= 0) { this.running = false; this.drag = null; if (this.carry) { this.carry.f.state = 'in'; this.carry = null; this.press = null; } if (this.hold) this.releaseHold(); this.endEvent(); if (this.hooks.onEnd) this.hooks.onEnd(this.stats); }
+    if (!tut && this.timeLeft <= 0) {
+      // 先结算手里按着的那块（此时仍算对局中，停电加成等规则照常生效），再结束对局
+      if (this.hold) this.releaseHold();
+      this.running = false; this.drag = null; if (this.carry) { this.carry.f.state = 'in'; this.carry = null; this.press = null; } this.endEvent(); if (this.hooks.onEnd) this.hooks.onEnd(this.stats); }
   };
 
   /* ---------- 绘制 ---------- */
