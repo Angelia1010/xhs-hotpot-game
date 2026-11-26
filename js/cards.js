@@ -100,9 +100,11 @@ var HP = window.HP = window.HP || {};
   };
 
   /* 三颗星：吃饱了 / 大家都满意 / 完成饭局卡目标 */
-  HP.starsOf = function (s, card) {
+  /* orderRate：第二颗星要完成多少点单（火锅日记前两天放宽，默认 HP.ORDER_RATE） */
+  HP.starsOf = function (s, card, orderRate) {
+    var need = orderRate || HP.ORDER_RATE || 0.6;
     var one = s.self >= 4;
-    var two = s.orders ? s.ordersDone / s.orders >= 0.6 : (s.self ? s.perfect / s.self >= 0.6 : false);
+    var two = s.orders ? s.ordersDone / s.orders >= need : (s.self ? s.perfect / s.self >= need : false);
     var p = HP.cardProgress(card, s), three = !!(p && p.done);
     return [one, two, three];
   };

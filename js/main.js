@@ -49,7 +49,7 @@
     var audio = new HP.Audio(), game = null, tutorial, images = { scene: {}, food: {} };
     var profile = HP.newProfile();
     var insets = { top: 0, bottom: 0 };
-    var cardUrl = null, msgTimer = null, current = null, pending = null, night = null, lastCode = null, lastNote = null;
+    var cardUrl = null, msgTimer = null, current = null, pending = null, night = null, lastCode = null, lastCodeLoose = false, lastNote = null;
     var jobs = assetJobs();
 
     /* 只提示一次：不挡操作，几秒后自动消失 */
@@ -119,7 +119,7 @@
     function saveProfile() { P.save('profile', profile); }
 
     /* ---------- 托盘：本局带上桌的菜 ---------- */
-    function buildTray(ids) {
+    function buildTray(ids, rules) {
       tray.innerHTML = '';
       ids.forEach(function (id) {
         var F = HP.FOODS[id], p = el('div', 'plate');
@@ -131,7 +131,7 @@
         p.appendChild(im);
         p.appendChild(el('span', null, F.name + '<i class="pr">¥' + F.price + '</i>'));
         p.appendChild(el('em', 'tag ' + F.mode, F.mode === 'swish' ? '涮' : '煮'));
-        var sp = F.special ? HP.SPECIAL[F.special] : HP.dipsOf(id);
+        var sp = F.special ? HP.SPECIAL[F.special] : (rules && rules.dips === false ? '' : HP.dipsOf(id));
         if (sp) p.appendChild(el('em', 'tag sp', sp));
         tray.appendChild(p);
       });
@@ -140,7 +140,6 @@
     function okByRules(id, rules) {
       var F = HP.FOODS[id];
       if (rules.swish === false && F.mode === 'swish') return false;
-      if (rules.dips === false && F.dips) return false;
       return true;
     }
     function trayFor(ids, rules) {
@@ -193,7 +192,7 @@
       $('dy-n').textContent = '第 ' + dn + ' / ' + HP.DAY_MAX + ' 天';
       $('dy-text').innerHTML = done ? '日记写完了！所有剧本和玩法都开放了。冲纪录、收集人格、发挑战码吧'
         : capped ? '今天写满了 ' + HP.DAY_CAP + ' 天，明天解锁第 ' + dn + ' 天：<b>' + Dy.title + '</b>。今天还能随便吃'
-        : '<b>' + Dy.title + '</b>：' + Dy.learn + '。拿到 2 颗星翻到下一天';
+        : '<b>' + Dy.title + '</b>：' + Dy.learn + '。拿到 ' + HP.dayStars(dn) + ' 颗星翻到下一天';
       $('dy-cap').classList.toggle('hidden', !capped);
       $('dy-bar').style.width = Math.round((dn - 1) / (HP.DAY_MAX - 1) * 100) + '%';
 
@@ -339,14 +338,14 @@
           '<span class="prog"><i style="width:' + pct + '%"></i></span>'));
         dex.appendChild(row);
       });
-      var per = $('c-per'); per.innerHTML = ''; var pg = 0;
-      HP.PERSONAS.forEach(function (x) {
+      var per = $('c-per'); per.innerHTML = ''; var pg = 0, dexP = HP.dexPersonas(profile.personas);
+      dexP.forEach(function (x) {
         var n = profile.personas[x.id] || 0; if (n) pg++;
         per.appendChild(el('div', 'c-row ach' + (n ? ' done' : ''),
           '<div class="c-info"><b>' + (n ? x.name : '？？？') + ' <em class="badge r-' + x.rare + '">' + HP.RARE[x.rare] + '</em></b><small>' +
           (n ? x.line : '线索：' + (x.hint || '还没测出过')) + '</small></div><span class="state">' + (n ? '×' + n : '') + '</span>'));
       });
-      document.querySelector('[data-tab="per"]').textContent = '饭局人格 ' + pg + '/' + HP.PERSONAS.length;
+      document.querySelector('[data-tab="per"]').textContent = '饭局人格 ' + pg + '/' + dexP.length;
       var mom = $('c-mom'); mom.innerHTML = '';
       var bonds = el('div', 'bonds');
       HP.BOND_IDS.forEach(function (id) {
@@ -545,18 +544,18 @@
       // 从挑战码 / 今日火锅直接进来、还没学过：先走完整教学
       if (!story && !profile.tutorialDone) {
         for (var i = 1; i <= HP.DAY_MAX; i++) if (HP.dayCfg(i).lesson) profile.seen['lesson_' + i] = 1;
-        saveProfile(); pending = opt; startTutorial(null); return;
+        saveProfile(); pending = opt; startTutorial([0, 1, 3, 4, 5, 6]); return;
       }
       if (story && D.lesson && !profile.seen['lesson_' + dn]) {
         profile.seen['lesson_' + dn] = 1; saveProfile();
         pending = opt; quitKey = 'lesson_' + dn;
         startTutorial(D.lesson, { title: '火锅日记 · 第 ' + dn + ' 天 · ' + D.title,
-          text: D.learn + '<br>正式开吃拿到 <b>2 颗星</b>，日记就翻到下一天' });
+          text: D.learn + '<br>正式开吃拿到 <b>' + HP.dayStars(dn) + ' 颗星</b>，日记就翻到下一天' });
         return;
       }
       if (story && !D.lesson && dn > 1 && !profile.seen['dayintro_' + dn]) {
         profile.seen['dayintro_' + dn] = 1; saveProfile(); quitKey = 'dayintro_' + dn;
-        showIntro('火锅日记 · 第 ' + dn + ' 天', D.title, [D.learn, '拿到 <b>2 颗星</b>，日记翻到下一天'], opt);
+        showIntro('火锅日记 · 第 ' + dn + ' 天', D.title, [D.learn, '拿到 <b>' + HP.dayStars(dn) + ' 颗星</b>，日记翻到下一天'], opt);
         return;
       }
       var sid = opt.kind === 'scene' ? opt.scene : null, S = sid && HP.SCENES[sid];
@@ -633,6 +632,9 @@
       } else {
         rules = HP.dayRules(profile);
         menu = HP.getLoadout(profile);
+        // 火锅日记前几天固定上招牌菜（饭局夜 / 翻台不受影响）
+        var Dt = HP.dayCfg(profile.day).tray;
+        if (Dt && kind === 'scene' && sid !== 'rush') menu = Dt.filter(function (id) { return profile.unlocked.indexOf(id) >= 0; });
         if (kind === 'night') { if (card) night.cards.push(card); cards = night.cards.slice(); }
         else if (card) cards = [card];
       }
@@ -646,7 +648,7 @@
           t.push(id);
         });
       });
-      buildTray(t);
+      buildTray(t, rules);
       var S = HP.SCENES[sid];
       $('hud-scene').textContent = kind === 'daily' ? '今日火锅' : kind === 'challenge' ? '挑战' : kind === 'night' ? '饭局夜 ' + (night.idx + 1) + '/3' : S.name;
       $('hud-sub').textContent = (kind === 'daily' || opt.issue ? HP.issueOf(HP.dayOfIssue(opt.issue || HP.issueNo(HP.dayKey()))) + (opt.practice ? ' · 练习' : '') + ' · ' : kind === 'night' || kind === 'challenge' ? S.name + ' · ' : '') + HP.POTS[pot].name;
@@ -792,11 +794,13 @@
       hideTip(); $('event').className = 'event';
       var opt = current || { kind: 'scene', scene: game.sceneId, sid: game.sceneId };
       var sid = opt.sid || game.sceneId, card = game.card;
-      var stars = HP.starsOf(s, card); s.stars = stars.filter(Boolean).length;
+      var storyRound = opt.kind === 'scene' || opt.kind === 'night';
+      var stars = HP.starsOf(s, card, storyRound ? HP.dayCfg(profile.day).orderRate : null); s.stars = stars.filter(Boolean).length;
       setTimeout(syncHintBtn, 0);
       var story = opt.kind === 'scene' || opt.kind === 'night';
       var r = HP.settle(profile, s, { scene: sid, daily: opt.kind === 'daily', practice: !!opt.practice, story: story,
                                       bestKey: opt.kind === 'night' || opt.kind === 'challenge' ? null : bestKeyOf(opt) });
+      s.newbie = profile.games <= 3;   // settle 已经把这局算进 games：前 3 局保底一个值得分享的人格
       var p = HP.persona(s);
       var meal = HP.afterMeal(profile, s, game.diners || [], HP.SCENES[sid].name);
       // 人格图鉴：第一次测出某个人格给金币
@@ -821,9 +825,14 @@
       lastPersona = p;
 
       // 挑战码：今日火锅用期数，挑战局用种子；都带上这局的分数
-      lastCode = null;
+      lastCode = null; lastCodeLoose = false;
       if (opt.issue) lastCode = HP.encodeChallenge({ issue: opt.issue, score: total });
       else if (opt.kind === 'challenge') lastCode = HP.encodeChallenge({ seed: opt.seed, scene: sid, pot: opt.pot, score: total });
+      else if (opt.kind === 'scene') {
+        // 自选菜单 / 火锅日记的局：直接出一道同剧本的挑战题，带上这局分数，不用再专门打一局「出题」
+        lastCode = HP.encodeChallenge({ seed: HP.newSeed() % 1048576, scene: sid, pot: opt.pot || profile.pot, score: total });
+        lastCodeLoose = true;
+      }
 
       var shown = Object.assign({}, s, { score: total, log: opt.kind === 'night' ? night.logs : s.log, stars: s.stars });
       cardUrl = HP.renderCard(images, shown, p, { date: today(), scene: labelOf(opt), card: card ? card.name : '', stars: s.stars, isBest: isBest, title: HP.titleOf(profile), code: lastCode });
@@ -832,6 +841,9 @@
       // —— 顶部：分数、纪录、星 ——
       $('r-label').textContent = labelOf(opt) + (card ? ' · ' + card.name : '');
       $('r-score').textContent = total;
+      $('r-pname').textContent = p.name;
+      $('r-pline').textContent = p.line;
+      var pr = $('r-prare'); pr.className = 'r-prare r-' + p.rare; pr.textContent = HP.RARE[p.rare] + '人格 · ' + p.rare + (newP ? ' · 新解锁' : '');
       var rec = $('r-rec');
       rec.className = 'r-rec' + (isBest ? ' best' : '');
       rec.textContent = opt.practice && opt.kind === 'daily' ? '练习局 · 今日正式成绩 ' + profile.daily.best + ' 分'
@@ -850,7 +862,7 @@
       var dayBox = $('r-day'), Dn = HP.dayCfg(profile.day);
       if (r.dayUp) dayBox.innerHTML = '火锅日记翻到 <b>第 ' + r.dayUp + ' 天：' + Dn.title + '</b><br>' + Dn.learn;
       else if (r.dayCapped) dayBox.innerHTML = '今天的日记写满了 ' + HP.DAY_CAP + ' 天，<b>明天解锁第 ' + profile.day + ' 天：' + Dn.title + '</b>';
-      else if (story && profile.day < HP.DAY_MAX) dayBox.innerHTML = '再多拿 <b>' + (HP.DAY_STARS - s.stars) + ' 颗星</b>，日记就翻到第 ' + (profile.day + 1) + ' 天：' + HP.dayCfg(profile.day + 1).title;
+      else if (story && profile.day < HP.DAY_MAX) dayBox.innerHTML = '再多拿 <b>' + Math.max(1, HP.dayStars(profile.day) - s.stars) + ' 颗星</b>，日记就翻到第 ' + (profile.day + 1) + ' 天：' + HP.dayCfg(profile.day + 1).title;
       else dayBox.innerHTML = '';
       dayBox.classList.toggle('hidden', !dayBox.innerHTML);
       // —— 下一个解锁 ——
@@ -868,6 +880,7 @@
         lb.className = 'r-loss';
       } else lb.className = 'r-loss hidden';
       $('btn-challenge').textContent = lastCode ? '挑战码' : '挑战好友';
+      $('btn-share').textContent = '私信卡片';
 
       // 差一点就是另一个人格
       var nr = $('r-near');
@@ -892,8 +905,8 @@
         profile.seen.coins = 1; saveProfile();
         rw.appendChild(el('div', 'rw-hint', '金币可以在首页「菜单 · 解锁」买新菜'));
       }
-      var got = HP.PERSONAS.filter(function (x) { return profile.personas[x.id]; }).length;
-      rw.appendChild(el('div', 'rw-line', '<span>饭局人格图鉴</span><b>' + got + ' / ' + HP.PERSONAS.length + '</b>'));
+      var dexAll = HP.dexPersonas(profile.personas), got = dexAll.filter(function (x) { return profile.personas[x.id]; }).length;
+      rw.appendChild(el('div', 'rw-line', '<span>饭局人格图鉴</span><b>' + got + ' / ' + dexAll.length + '</b>'));
       (r.cardUp || []).forEach(function (c) { rw.appendChild(el('div', 'rw-up', '解锁新饭局卡：' + c.name)); });
       if (r.titleUp) rw.appendChild(el('div', 'rw-up', '称号升级：' + r.titleUp));
       if (r.streakUp) rw.appendChild(el('div', 'rw-line', '<span>连续打卡</span><b>' + profile.streak.n + ' 天</b>'));
@@ -981,12 +994,18 @@
         else msg('保存失败，请检查相册权限');
       });
     });
-    $('btn-share').addEventListener('click', function () {
-      P.share(cardUrl).catch(function (e) {
-        var code = e && (e.errCode || e.code);
-        msg(code === 15503 ? '今天分享次数用完啦' : '暂时无法分享，可以先保存图片');
-      });
-    });
+    /* 发给饭搭子：优先发小工具卡片（朋友点开就能玩），发不了再退到发笔记 / 存图 */
+    function invite() {
+      if (P.canShare) {
+        P.shareCard().then(function () { msg('发出去了！等 TA 测完来对比'); }).catch(function (e) {
+          var code = e && (e.errCode || e.code);
+          if (code === 15503) msg('今天分享次数用完啦，可以发笔记');
+          else post(lastNote, [cardUrl]);
+        });
+      } else post(lastNote, [cardUrl]);
+    }
+    $('btn-invite').addEventListener('click', invite);
+    $('btn-share').addEventListener('click', invite);
 
     /* ---------- 挑战码 ---------- */
     var codeFrom = 'home';
@@ -996,7 +1015,9 @@
       if (mode === 'show') {
         $('cb-title').textContent = '挑战码';
         $('cb-code').textContent = HP.prettyCode(lastCode);
-        $('cb-text').innerHTML = '朋友在首页点「输入挑战码」，就能打<b>同一锅</b>：菜单、锅底、饭局卡、事件都和你一样。结算卡底部也印着这个码';
+        $('cb-text').innerHTML = lastCodeLoose
+          ? '朋友在首页点「输入挑战码」，就能在<b>同一个剧本</b>跟你比分（菜单随机，看谁分高）。结算卡底部也印着这个码'
+          : '朋友在首页点「输入挑战码」，就能打<b>同一锅</b>：菜单、锅底、饭局卡、事件都和你一样。结算卡底部也印着这个码';
         show('cb-show');
       } else if (mode === 'input') {
         $('cb-title').textContent = '输入挑战码'; $('cb-err').textContent = ''; $('cb-field').value = '';

@@ -93,7 +93,7 @@ var HP = window.HP = window.HP || {};
     for (var i = 0; i < HP.DAYS.length; i++) if ((HP.DAYS[i][kind || 'scenes'] || []).indexOf(key) >= 0) return i + 1;
     return 1;
   };
-  HP.modeDay = { daily: 4, challenge: 4, night: HP.unlockDay('night', 'modes'), rush: HP.unlockDay('rush', 'modes'), cards: 6 };
+  HP.modeDay = { daily: 1, challenge: 1, night: HP.unlockDay('night', 'modes'), rush: HP.unlockDay('rush', 'modes'), cards: 6 };
   HP.modeOpen = function (p, mode) { return (p.day || 1) >= (HP.modeDay[mode] || 1); };
   /* 当天还关着的机制（之后的天数没有 rules，全开） */
   HP.dayRules = function (p) { return (HP.dayCfg(p.day || 1).rules) || {}; };
@@ -198,7 +198,7 @@ var HP = window.HP = window.HP || {};
     }
 
     // 火锅日记：拿到两星算这一天过关，每个自然日最多推进 HP.DAY_CAP 天
-    if (ctx.story && (s.stars || 0) >= HP.DAY_STARS && p.day < HP.DAY_MAX) {
+    if (ctx.story && (s.stars || 0) >= HP.dayStars(p.day) && p.day < HP.DAY_MAX) {
       if (!p.dayLog || p.dayLog.date !== today) p.dayLog = { date: today, n: 0 };
       if (p.dayLog.n < HP.DAY_CAP) {
         out.dayDone = p.day; p.day++; p.dayLog.n++; out.dayUp = p.day;
@@ -278,6 +278,13 @@ var HP = window.HP = window.HP || {};
       test: function (s) { return s.toastOk + s.speechOk >= 2 && !s.toastMiss && !s.speechBreak && s.ordersDone >= 3; } },
     { id: 'hushi', name: '护食战神', line: '在你面前，没人夹得走一片肉', rare: 'R', best: 'beiqiang', worst: 'laomazi',
       test: function (s) { return s.blocked >= 4; } },
+    /* 新人限定（前 3 局）：第一顿饭别给人「摸鱼食客」「被抢专业户」这种劝退人格，挑一个值得发出去的 */
+    { id: 'xinxing', name: '火锅新星', line: '第一次上桌，肥牛就涮出了老师傅的水平', rare: 'R', best: 'laomazi', worst: 'xiedian', newbie: true,
+      hint: '刚上桌的前 3 局限定', test: function (s) { return s.newbie && s.perfect >= 2; } },
+    { id: 'nuanxin', name: '暖心夹菜人', line: '自己还没吃上，先给朋友夹了一筷子', rare: 'R', best: 'ganfan', worst: 'hushi', newbie: true,
+      hint: '刚上桌的前 3 局限定', test: function (s) { return s.newbie && s.served >= 1; } },
+    { id: 'kuaile', name: '快乐吃货', line: '会不会涮不重要，坐上这桌就是赢', rare: 'R', best: 'laomazi', worst: 'huohou', newbie: true,
+      hint: '刚上桌的前 3 局限定', test: function (s) { return !!s.newbie; } },
     { id: 'beiqiang', name: '被抢专业户', line: '你涮的每一片肉，都进了别人的嘴', rare: 'N', best: 'hushi', worst: 'ganfan',
       test: function (s) { return s.stolen >= 3; } },
     { id: 'shengchi', name: '生吃挑战者', line: '不熟也敢吃，胃是铁打的', rare: 'N', best: 'xiedian', worst: 'huohou',
@@ -336,6 +343,8 @@ var HP = window.HP = window.HP || {};
     });
     return best;
   };
+  /* 图鉴里算进总数的人格：新人限定的只有拿到了才显示 */
+  HP.dexPersonas = function (owned) { return HP.PERSONAS.filter(function (x) { return !x.newbie || (owned && owned[x.id]); }); };
   HP.RARE = { N: '普通', R: '稀有', SR: '罕见', SSR: '传说' };
   HP.personaById = function (id) { for (var i = 0; i < HP.PERSONAS.length; i++) if (HP.PERSONAS[i].id === id) return HP.PERSONAS[i]; return null; };
   HP.personaMetrics = function (s) {

@@ -244,7 +244,7 @@ var HP = window.HP = window.HP || {};
         if (k <= 0.35) return { kind: 'perfect', label: '脆！', score: 130, color: '#7dff9a' };
         if (k > 0.7) return { kind: 'ok', label: '有点面了', score: 60, color: '#ffe08a', skill: true };
       }
-      if (F.dips && f.dips != null) {
+      if (F.dips && f.dips != null && this.ruleOn('dips')) {
         if (f.dips >= F.dips[0] && f.dips <= F.dips[1]) {
           return F.authentic ? { kind: 'perfect', label: '正宗七上八下！', score: 150, color: '#7dff9a', authentic: true }
                              : { kind: 'perfect', label: F.dipName || '完美！', score: 130, color: '#7dff9a' };

@@ -74,6 +74,9 @@ var HP = window.HP = window.HP || {};
     if (!P.canShare) return Promise.reject(new Error('unsupported'));
     return dataUrl ? call('share', { type: 'image', image_resource: dataUrl }) : call('share', { type: 'card' });
   };
+  /* 小工具卡片：朋友收到后点开就能进游戏（image 类型只是一张图，进不来）。
+     TODO：确认 share 的 card 类型能否带标题 / 启动参数，能的话把挑战码放进去，朋友点开直接打同一锅 */
+  P.shareCard = function () { return P.share(null); };
 
   /* ---------- 一键发笔记：结算卡直接带进发布页 ----------
      大图先用 writeTempFile 换成本地路径（文档建议），失败就直接传 data URI */

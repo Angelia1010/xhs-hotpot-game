@@ -443,8 +443,23 @@ body {
 .r-score span { margin-left: 4px; font-size: 14px; opacity: 0.75; }
 .r-rec { margin-top: -2px; font-size: 14px; font-weight: 800; color: #ffe9c9; }
 .r-rec.best { color: #2a1400; display: inline-block; padding: 2px 12px; border-radius: 10px; background: linear-gradient(#ffe27a, #ffb000); }
-.r-stars { margin-top: 4px; font-size: 22px; color: #ffd35c; letter-spacing: 4px; }
+/* 人格放第一屏正中间，分数和星星退到下面一行 */
+.r-persona { margin: 6px 0 2px; }
+.r-persona small { display: block; font-size: 12px; opacity: 0.75; letter-spacing: 2px; }
+.r-persona b { display: block; margin-top: 2px; font-size: 40px; font-weight: 900; letter-spacing: 2px; color: #ffe2a8; text-shadow: 0 3px 0 #7a1400, 0 6px 16px rgba(0,0,0,0.5); line-height: 1.15; }
+.r-persona p { margin-top: 4px; font-size: 15px; font-weight: 800; color: #fff3e0; }
+.r-prare { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-style: normal; font-weight: 800; color: #2a1400; background: #e8d9c6; }
+.r-prare.r-R { background: linear-gradient(#a8d8ff, #5fa8ff); }
+.r-prare.r-SR { background: linear-gradient(#e7b8ff, #b06bff); color: #fff; }
+.r-prare.r-SSR { background: linear-gradient(#ffe27a, #ffb000); }
+.r-sum { display: flex; align-items: center; justify-content: center; margin-top: 8px; }
+.r-sum .r-score { margin-right: 12px; }
+.r-sum .r-score b { font-size: 30px; text-shadow: 0 2px 0 #7a1400; }
+.r-stars { font-size: 20px; color: #ffd35c; letter-spacing: 3px; }
 .r-stars small { display: block; font-size: 11px; letter-spacing: 0; color: rgba(255,240,220,0.75); }
+.invite { display: block; width: 100%; margin-top: 10px; padding: 12px 0; border-radius: 16px; font: inherit; font-size: 16px; font-weight: 900; color: #fff;
+  background: linear-gradient(#ff5a6e, #e0203c); border: 0; box-shadow: 0 4px 0 #8a0f20, 0 8px 18px rgba(0,0,0,0.35); }
+.invite:active { transform: translateY(3px); box-shadow: 0 1px 0 #8a0f20; }
 .r-vs { margin: 6px 0; padding: 10px 12px; border-radius: 14px; font-size: 15px; font-weight: 900; text-align: center; background: rgba(0,0,0,0.35); }
 .r-vs.win { color: #2a1400; background: linear-gradient(#a6ffbe, #4fcf74); }
 .r-vs.lose { color: #ffe2d6; background: linear-gradient(160deg, rgba(150,25,8,0.95), rgba(70,10,3,0.95)); }

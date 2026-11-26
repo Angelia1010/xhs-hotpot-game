@@ -143,7 +143,7 @@
         <p><em class="k">护食</em>同桌的筷子伸过来，<b>点它</b>挡开</p>
         <p><em class="k">讲话</em>有人讲话时<b>别动筷子</b>；有人举杯要<b>干杯</b></p>
         <p><em class="k">新菜</em>每道解锁的菜都有<b>自己的吃法</b>：嫩牛肉要抖散、鹅肠别提、腰片要大火、牛肉丸会爆汁……第一次下锅会提示</p>
-        <p><em class="k">火锅日记</em>每天学一样新本事，拿到 <b>2 颗星</b>就翻到下一天，一天最多翻 3 天</p>
+        <p><em class="k">火锅日记</em>每天学一样新本事，拿到星星就翻到下一天（前 3 天 1 颗，之后 2 颗），一天最多翻 3 天</p>
         <p><em class="k">饭局卡</em>每局开吃前<b>三选一</b>：规则会变，完成卡上目标拿<b>第三颗星</b></p>
         <p><em class="k">饭局夜</em>一晚赶三场：朋友局→团建→家宴，选过的卡<b>一路叠加</b></p>
         <p><em class="k">翻台</em>没有倒计时，同桌等不到菜会<b>离席</b>，走 3 个就结束</p>
@@ -258,14 +258,21 @@
 
   <section id="result" class="overlay hidden">
     <div class="result-wrap">
+      <!-- 第一屏：先告诉玩家「你是谁」（最想分享的东西），再给「再来一局」和「发给饭搭子」 -->
       <div class="r-top">
         <small id="r-label"></small>
-        <div class="r-score"><b id="r-score">0</b><span>分</span></div>
+        <div id="r-persona" class="r-persona">
+          <small>经鉴定，你是</small>
+          <b id="r-pname"></b>
+          <p id="r-pline"></p>
+          <em id="r-prare" class="r-prare"></em>
+        </div>
+        <div class="r-sum"><span class="r-score"><b id="r-score">0</b><span>分</span></span><span id="r-stars" class="r-stars"></span></div>
         <div id="r-rec" class="r-rec"></div>
-        <div id="r-stars" class="r-stars"></div>
       </div>
       <div id="r-vs" class="r-vs hidden"></div>
       <button id="btn-again" class="cta again" type="button">再来一局</button>
+      <button id="btn-invite" class="invite" type="button">发给饭搭子，看 TA 是什么人格</button>
       <button id="r-rank" class="r-rank hidden" type="button"></button>
       <div id="r-day" class="r-day hidden"></div>
       <button id="r-next" class="r-next hidden" type="button"><span id="r-next-text"></span><i><b id="r-next-bar"></b></i></button>

@@ -63,38 +63,43 @@ async def main():
 
         # ---------- 1. 新玩家：火锅日记第 1 天 ----------
         pg, errs = await page(b)
-        ok('新玩家首页：日记第 1 天、今日火锅锁着', await js(pg, "document.getElementById('dy-n').textContent.indexOf('第 1 ')===0 && !document.getElementById('d-lock').classList.contains('hidden')"))
+        ok('新玩家首页：日记第 1 天、今日火锅第一天就开放', await js(pg, "document.getElementById('dy-n').textContent.indexOf('第 1 ')===0 && document.getElementById('d-lock').classList.contains('hidden')"))
         await js(pg, "document.getElementById('diary').click()"); await pg.wait_for_timeout(500)
         t = await js(pg, "document.getElementById('coach-title').textContent")
-        ok('第 1 天先教「煮」（编号从第 1 步开始）', '第 1 步 · 煮' in t, t)
-        # 用游戏接口走完第 1 天的三步：煮下锅 → 捞起 → 夹给闺蜜
+        ok('第 1 天先教「涮」肥牛（编号从第 1 步开始）', '第 1 步 · 涮' in t, t)
+        # 涮：按住肥牛拖进锅，等一会儿松手
+        await js(pg, """() => { var g=HP.game; var r=document.getElementById('plate-beef').getBoundingClientRect(), c=document.getElementById('cv').getBoundingClientRect();
+          g.dragStart('beef', r.left-c.left+r.width/2, r.top-c.top+r.height/2); var z=g.zones[4], q=g.toScreen(z.cx,z.cy); g.dragMove(q.x,q.y+54*g.unit); }""")
+        await pg.wait_for_timeout(600)
+        await js(pg, "(()=>{var g=HP.game; if(g.hold) g.hold.d=HP.FOODS.beef.a+1; g.dragEnd();})()")
+        await pg.wait_for_timeout(1800)
+        t = await js(pg, "document.getElementById('coach-title').textContent")
+        ok('涮学完进入「煮」', '第 2 步 · 煮' in t, t)
+        # 煮：午餐肉下锅 → 捞起
         await js(pg, """() => { var g=HP.game; var r=document.getElementById('plate-luncheon').getBoundingClientRect(), c=document.getElementById('cv').getBoundingClientRect();
           g.dragStart('luncheon', r.left-c.left+r.width/2, r.top-c.top+r.height/2); var z=g.zones[3], q=g.toScreen(z.cx,z.cy); g.dragMove(q.x,q.y+54*g.unit); g.dragEnd(); }""")
         await pg.wait_for_timeout(400)
         await js(pg, "(()=>{var g=HP.game,f=g.foods.filter(x=>x.state==='in')[0]; f.d=HP.FOODS[f.type].a+1; var p=g.toScreen(f.nx,f.ny); g.pointerDown(p.x,p.y); g.pointerUp();})()")
         await pg.wait_for_timeout(1800)
         t = await js(pg, "document.getElementById('coach-title').textContent")
-        ok('第 1 天教「护食」：老王来抢鸭血', '第 2 步 · 护食' in t and await js(pg, "HP.game.npcs.length>0 && HP.game.npcs[0].phase!=='idle'"), t)
-        # 点老王的筷子挡开（等筷子伸到看得见的地方）
-        await pg.wait_for_timeout(1200)
-        await js(pg, "(()=>{var g=HP.game,n=g.npcs[0]; if(n.tip){g.pointerDown(n.tip.x,n.tip.y); g.pointerUp();}})()")
-        await pg.wait_for_timeout(5000)
-        t = await js(pg, "document.getElementById('coach-title').textContent")
-        ok('护食学完进入「照顾同桌」', '第 3 步 · 照顾同桌' in t, t)
+        ok('煮学完直接「照顾同桌」（第 1 天不教护食）', '第 3 步 · 照顾同桌' in t, t)
         await js(pg, "(()=>{var g=HP.game,f=g.foods.filter(x=>x.state==='in'&&x.type==='luncheon')[0], d=g.diners.filter(x=>x.id==='friend')[0]; var p=g.toScreen(f.nx,f.ny); g.pointerDown(p.x,p.y); g.pointerMove(p.x+20,p.y-30); g.pointerMove(d.x,d.y+54*g.unit); g.pointerUp();})()")
         await pg.wait_for_timeout(1900)
         t = await js(pg, "document.getElementById('coach-title').textContent")
         ok('第 1 天教学走到「学会了」', '第 1 天' in t, t)
         await js(pg, "document.getElementById('coach-btn').click()"); await pg.wait_for_timeout(600)
         st = json.loads(await js(pg, "JSON.stringify({mode:HP.game.mode,run:HP.game.running,npcs:HP.game.npcs.length,cards:HP.game.cards.length,tray:[].map.call(document.querySelectorAll('.plate'),e=>e.dataset.food)})"))
-        swish = await js(pg, "[].some.call(document.querySelectorAll('.plate'),e=>HP.FOODS[e.dataset.food].mode==='swish')")
-        ok('第 1 天正式局：只有煮的菜、老王会抢菜、没饭局卡', st['mode'] == 'play' and st['run'] and st['npcs'] > 0 and st['cards'] == 0 and not swish, st)
+        tags = await js(pg, "[].map.call(document.querySelectorAll('.plate .tag.sp'),e=>e.textContent).join(',')")
+        ok('第 1 天正式局：肥牛毛肚上桌、没人抢菜、没饭局卡、毛肚不标七上八下', st['mode'] == 'play' and st['run'] and st['npcs'] == 0 and st['cards'] == 0
+           and 'beef' in st['tray'] and 'maodu' in st['tray'] and '七上八下' not in tags, [st, tags])
+        dipjudge = await js(pg, "HP.game.rate({type:'maodu',d:HP.FOODS.maodu.a+1,dips:0}).kind")
+        ok('第 1 天毛肚不考七上八下（没提放也算完美）', dipjudge == 'perfect', dipjudge)
         await pg.wait_for_timeout(1500)
         await js(pg, FINISH_2STAR); await pg.wait_for_timeout(1400)
         r1 = json.loads(await js(pg, "JSON.stringify({day:HP.profile().day, txt:document.getElementById('r-day').textContent, top:document.getElementById('btn-again').getBoundingClientRect().top, img:document.getElementById('r-img').getBoundingClientRect().top, next:document.getElementById('r-next-text').textContent})"))
-        ok('拿 2 星日记翻到第 2 天', r1['day'] == 2 and '第 2 天' in r1['txt'], r1)
+        ok('过关日记翻到第 2 天', r1['day'] == 2 and '第 2 天' in r1['txt'], r1)
         ok('结算页：「再来一局」在结算卡上面、有下一个解锁', r1['top'] < r1['img'] and '解锁' in r1['next'], r1)
-        # 第 2 天：先教涮；然后连续拿星，第 4 天后今天写满
+        # 第 2 天：先教护食；然后连续拿星，第 4 天后今天写满
         for i in range(4):
             await js(pg, "document.getElementById('btn-home').click()"); await pg.wait_for_timeout(300)
             await js(pg, "document.getElementById('diary').click()"); await pg.wait_for_timeout(500)
@@ -409,7 +414,7 @@ async def main():
         ok('人格：A 的最佳饭搭子不会把 A 当最差', not clash, clash)
         sp_all = await js(pg, "HP.FOOD_ORDER.filter(id=>HP.FOODS[id].unlock && !HP.FOODS[id].special && !HP.FOODS[id].dips)")
         ok('每道解锁菜都有自己的玩法', not sp_all, sp_all)
-        days = await js(pg, "HP.DAYS.every((d,i)=>d.title&&d.learn&&d.story) && HP.unlockDay('rush')===10 && HP.modeOpen({day:4},'daily') && !HP.modeOpen({day:3},'daily')")
+        days = await js(pg, "HP.DAYS.every((d,i)=>d.title&&d.learn&&d.story) && HP.unlockDay('rush')===10 && HP.modeOpen({day:1},'daily') && HP.dayStars(1)===1 && HP.dayStars(5)===2")
         ok('火锅日记 10 天配置完整', days)
         await pg.close()
 
@@ -503,8 +508,34 @@ async def main():
         back = json.loads(await js(pg, "JSON.stringify({home:" + vis('home') + ", coach:document.getElementById('coach').classList.contains('hidden'), seen:!!HP.profile().seen.lesson_1, run:HP.game.running})"))
         ok('教学里也能暂停（不显示重新开始），回首页后下次接着教', tut['p'] and tut['restart'] and back['home'] and back['coach'] and not back['seen'] and not back['run'], (tut, back))
         await js(pg, "document.getElementById('diary').click()"); await pg.wait_for_timeout(500)
-        ok('再点日记：重新开始第 1 天教学', '第 1 步 · 煮' in await js(pg, "document.getElementById('coach-title').textContent"))
+        ok('再点日记：重新开始第 1 天教学', '第 1 步 · 涮' in await js(pg, "document.getElementById('coach-title').textContent"))
         ok('教学退出无报错', not errs, errs[:3]); await pg.close()
+
+        # ---------- 13b. 新人首局：保底人格、发给饭搭子发卡片、日记局也有挑战码 ----------
+        pg, errs = await page(b, init=XHS_MOCK)
+        await js(pg, "(()=>{var p=HP.profile(); p.tutorialDone=true; p.seen.lesson_1=1; p.seen.heat_jiugong=1;})()")
+        await js(pg, "document.getElementById('diary').click()"); await pg.wait_for_timeout(900)
+        await js(pg, "HP.game.stats.stolen=5; HP.game.elapsed=60"); await pg.wait_for_timeout(1600)
+        nb = json.loads(await js(pg, "JSON.stringify({name:document.getElementById('r-pname').textContent, rare:document.getElementById('r-prare').textContent, code:document.getElementById('btn-challenge').textContent})"))
+        ok('新人第一局：没吃几口也不出 N 级劝退人格', nb['name'] and '普通' not in nb['rare'] and nb['name'] not in ('摸鱼食客', '被抢专业户'), nb)
+        ok('日记局结算直接有挑战码', nb['code'] == '挑战码', nb)
+        await js(pg, "document.getElementById('btn-invite').click()"); await pg.wait_for_timeout(600)
+        ok('发给饭搭子：发小工具卡片（朋友点开就能玩）', await js(pg, "__calls.some(c=>c[0]==='share'&&c[1]==='card')"))
+        await js(pg, "document.getElementById('btn-challenge').click()"); await pg.wait_for_timeout(200)
+        dc = await js(pg, "HP.decodeChallenge(document.getElementById('cb-code').textContent)")
+        ok('日记局挑战码：同剧本、带分数', dc and dc.get('scene') == 'bros', dc)
+        await js(pg, "document.getElementById('cb-back').click()"); await pg.wait_for_timeout(200)
+        ok('图鉴总数不含没拿到的新人限定人格', await js(pg, "HP.dexPersonas({}).length===HP.PERSONAS.filter(x=>!x.newbie).length"))
+        ok('新人首局流程无报错', not errs, errs[:3]); await pg.close()
+
+        # 老玩家（第 4 局以后）照常出 N 级人格
+        pg, errs = await page(b)
+        await js(pg, VETERAN)
+        await js(pg, "document.querySelector('[data-scene=bros]').click()"); await pg.wait_for_timeout(300)
+        await js(pg, PICK_FIRST_CARD); await pg.wait_for_timeout(800)
+        await js(pg, "HP.game.elapsed=60"); await pg.wait_for_timeout(1400)
+        ok('老玩家不触发新人保底人格', not await js(pg, "!!(HP.personaById && (function(){var n=document.getElementById('r-pname').textContent;return HP.PERSONAS.some(x=>x.newbie&&x.name===n)})())"))
+        await pg.close()
 
         # ---------- 14. 小屏 / 大屏布局 ----------
         for vw, vh, tag in [(360, 640, 'small'), (430, 932, 'big')]:
@@ -519,6 +550,8 @@ async def main():
             await pg.screenshot(path=f'/tmp/result_{tag}.png')
             fit = await js(pg, "document.getElementById('btn-again').getBoundingClientRect().bottom <= window.innerHeight")
             ok(f'{tag} 结算页第一屏就看得到「再来一局」', fit)
+            fit2 = await js(pg, "document.getElementById('btn-invite').getBoundingClientRect().bottom <= window.innerHeight && document.getElementById('r-pname').textContent.length>0")
+            ok(f'{tag} 结算页第一屏有人格和「发给饭搭子」', fit2)
             await pg.close()
         await b.close()
     passed = sum(1 for r in R if r[1])
