@@ -49,7 +49,7 @@
     var audio = new HP.Audio(), game = null, tutorial, images = { scene: {}, food: {} };
     var profile = HP.newProfile();
     var insets = { top: 0, bottom: 0 };
-    var cardUrl = null, msgTimer = null, current = null, pending = null, night = null, lastCode = null, lastCodeLoose = false, lastNote = null;
+    var lastChal = null, cardUrl = null, msgTimer = null, current = null, pending = null, night = null, lastCode = null, lastCodeLoose = false, lastNote = null;
     var jobs = assetJobs();
 
     /* 只提示一次：不挡操作，几秒后自动消失 */
@@ -227,7 +227,8 @@
         var S = HP.SCENES[id], ok = HP.sceneUnlocked(profile, id), b = el('button', 'scene-card' + (ok ? '' : ' locked'));
         b.type = 'button'; b.setAttribute('data-scene', id);
         var best = profile.bestBy[id];
-        b.innerHTML = '<b>' + S.name + '</b><small>' + (ok ? S.desc : '火锅日记第 ' + HP.unlockDay(id) + ' 天解锁') + '</small>' +
+        var ch = (profile.chal || {})[id];
+        b.innerHTML = '<b>' + S.name + '</b><small>' + (ok ? (ch && ch.t ? '挑战成功 ' + ch.w + '/' + ch.t + ' · 下一局挑战 ' + HP.chalTarget(profile, id, id) + ' 分' : S.desc) : '火锅日记第 ' + HP.unlockDay(id) + ' 天解锁') + '</small>' +
           '<em>' + (ok ? (profile.stars[id] ? '<span class="stars">' + stars3(profile.stars[id]) + '</span>' : (best ? '最高 ' + best : '开吃')) : '未解锁') + '</em>';
         sc.appendChild(b);
       });
@@ -613,6 +614,8 @@
 
     /* 开一局：按玩法决定种子、菜单、锅底、饭局卡和这一天开放的机制 */
     var WAIT_TEXT = '等领导先动筷…';
+    /* 得分挑战按什么分开记：剧本 / 今日火锅 / 饭局夜；挑战码对局不记 */
+    function chalKeyOf(opt) { return opt.kind === 'daily' || (opt.kind === 'challenge' && opt.issue) ? 'daily' : opt.kind === 'night' ? 'night' : opt.kind === 'challenge' ? 'custom' : opt.sid || opt.scene; }
     function bestKeyOf(opt) { return opt.kind === 'daily' ? 'daily' : opt.kind === 'night' ? 'night' : opt.kind === 'challenge' ? null : opt.sid || opt.scene; }
     function startRound(opt, card) {
       audio.unlock(); hideOverlays(); pending = null; current = opt; paused = false; quitKey = null;
@@ -653,12 +656,22 @@
       $('hud-scene').textContent = kind === 'daily' ? '今日火锅' : kind === 'challenge' ? '挑战' : kind === 'night' ? '饭局夜 ' + (night.idx + 1) + '/3' : S.name;
       $('hud-sub').textContent = (kind === 'daily' || opt.issue ? HP.issueOf(HP.dayOfIssue(opt.issue || HP.issueNo(HP.dayKey()))) + (opt.practice ? ' · 练习' : '') + ' · ' : kind === 'night' || kind === 'challenge' ? S.name + ' · ' : '') + HP.POTS[pot].name;
       layout();
-      var best = kind === 'challenge' && opt.vs != null ? opt.vs : (profile.bestBy[bestKeyOf(opt)] || 0);
+      // 每局得分挑战：挑战码对局就是对方的分；饭局夜整晚一个目标（第一桌定下来）
+      var vsRound = kind === 'challenge' && opt.vs != null;
+      opt.chalKey = vsRound ? null : chalKeyOf(opt);
+      if (vsRound) opt.target = opt.vs;
+      else if (kind === 'night' && night.target) opt.target = night.target;
+      else opt.target = HP.chalTarget(profile, opt.chalKey || sid, sid);
+      if (kind === 'night') night.target = opt.target;
+      var best = opt.target;
       game.mode = 'play';
       game.setup({ scene: sid, seed: seed, pot: pot, menu: t, cards: cards, rules: rules, best: best });
       game.reset();
       resetHud();
-      var go = function () { game.running = true; syncHintBtn(); P.keepScreenOn(true); };
+      var go = function () {
+        game.running = true; syncHintBtn(); P.keepScreenOn(true);
+        if (kind !== 'night' || night.idx === 0) msg(vsRound ? '本局挑战：超过对方 ' + opt.target + ' 分' : '本局挑战：拿到 ' + opt.target + ' 分' + (kind === 'night' ? '（三桌总分）' : ''), 2400);
+      };
       if (flip) showFlip(flip, go); else go();
       if (S.bossFirst) hooks.onEvent('wait', { text: WAIT_TEXT, sub: '这 ' + S.bossFirst + ' 秒先别夹菜' }, true);
       // 第一局开场在锅上标出火力；一人食飘一句提示
@@ -696,8 +709,10 @@
       var vs = current && current.kind === 'challenge' && current.vs != null;
       $('rec-bar').style.width = Math.min(100, Math.round(sc / b * 100)) + '%';
       var close = !game.endless && game.timeLeft <= 10 && sc <= b && b - sc <= Math.max(200, b * 0.5);
-      r.className = 'rec' + (sc > b ? ' beat' : close ? ' close' : '');
-      $('rec-text').textContent = sc > b ? (vs ? '赢了对方 ✓' : '破纪录 ✓') : close ? '还差 ' + (b - sc + 1) + ' 分!' : (vs ? '对方 ' : '纪录 ') + b;
+      var won = vs ? sc > b : sc >= b;
+      close = close && !won;
+      r.className = 'rec' + (won ? ' beat' : close ? ' close' : '');
+      $('rec-text').textContent = won ? (vs ? '赢了对方 ✓' : '挑战成功 ✓') : close ? '还差 ' + (vs ? b - sc + 1 : b - sc) + ' 分!' : (vs ? '对方 ' : '挑战 ') + b;
     }
 
     /* 开局翻卡（每日一锅 / 挑战局用固定的卡）：1.8 秒后自动开吃，点一下也可以 */
@@ -820,6 +835,15 @@
         // 一晚三个人格，取最稀有的那个上卡
         night.personas.forEach(function (x) { if (RARE_ORDER[x.rare] > RARE_ORDER[p.rare]) p = x; });
       }
+      // 得分挑战：成功 / 失败，成功给金币
+      var vsR = opt.kind === 'challenge' && opt.vs != null;
+      var chal = HP.chalSettle(profile, vsR ? null : (opt.chalKey || sid), total, opt.target || 0, vsR ? opt.vs : null);
+      chal.target = opt.target || 0; chal.vs = vsR;
+      if (chal.coins) {
+        if (opt.kind === 'night') night.coins += chal.coins; else r.coins += chal.coins;
+        r.lines.push(['挑战成功', chal.coins]);
+      }
+      lastChal = chal;
       var near = HP.nearPersona(s, p, profile.personas);
       saveProfile();
       lastPersona = p;
@@ -835,12 +859,17 @@
       }
 
       var shown = Object.assign({}, s, { score: total, log: opt.kind === 'night' ? night.logs : s.log, stars: s.stars });
-      cardUrl = HP.renderCard(images, shown, p, { date: today(), scene: labelOf(opt), card: card ? card.name : '', stars: s.stars, isBest: isBest, title: HP.titleOf(profile), code: lastCode });
-      lastNote = HP.noteText({ persona: p.name, label: labelOf(opt), score: total, stars: s.stars, grid: HP.gridOf(shown.log), line: p.line, code: lastCode });
+      cardUrl = HP.renderCard(images, shown, p, { date: today(), scene: labelOf(opt), card: card ? card.name : '', stars: s.stars, isBest: isBest, title: HP.titleOf(profile), code: lastCode, chal: chal });
+      lastNote = HP.noteText({ persona: p.name, label: labelOf(opt), score: total, stars: s.stars, grid: HP.gridOf(shown.log), line: p.line, code: lastCode, chal: chal });
 
       // —— 顶部：分数、纪录、星 ——
       $('r-label').textContent = labelOf(opt) + (card ? ' · ' + card.name : '');
       $('r-score').textContent = total;
+      var rc = $('r-chal');
+      rc.className = 'r-chal ' + (chal.ok ? 'ok' : 'fail') + (chal.vs ? ' hidden' : '');
+      rc.innerHTML = '<b>' + (chal.ok ? '挑战成功' : '挑战失败') + '</b><span>本局挑战 ' + chal.target + ' 分' +
+        (chal.ok ? (chal.coins ? ' · +' + chal.coins + ' 金币' : '') : ' · 差 ' + (chal.target - total) + ' 分') + '</span>' +
+        (chal.t ? '<small>' + (opt.kind === 'night' ? '饭局夜' : opt.kind === 'daily' ? '今日火锅' : HP.SCENES[sid].name) + '挑战成功 ' + chal.w + ' / ' + chal.t + ' 次</small>' : '');
       $('r-pname').textContent = p.name;
       $('r-pline').textContent = p.line;
       var pr = $('r-prare'); pr.className = 'r-prare r-' + p.rare; pr.textContent = HP.RARE[p.rare] + '人格 · ' + p.rare + (newP ? ' · 新解锁' : '');

@@ -127,6 +127,7 @@ var HP = window.HP = window.HP || {};
     var title = ('我是「' + o.persona + '」· 火锅局').slice(0, 20);
     var lines = [];
     lines.push((o.label ? o.label + ' · ' : '') + o.score + ' 分' + (o.stars != null ? ' ' + '★★★'.slice(0, o.stars) + '☆☆☆'.slice(0, 3 - o.stars) : ''));
+    if (o.chal && o.chal.target && !o.chal.vs) lines.push('🎯 本局挑战 ' + o.chal.target + ' 分：' + (o.chal.ok ? '挑战成功 ✅' : '差 ' + (o.chal.target - o.score) + ' 分，挑战失败 ❌'));
     if (o.grid) lines.push(o.grid);
     if (o.line) lines.push(o.line);
     if (o.code) lines.push('挑战码 ' + HP.prettyCode(o.code) + '，敢来打同一锅吗？');

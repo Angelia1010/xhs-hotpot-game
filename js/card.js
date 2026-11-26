@@ -100,8 +100,15 @@ var HP = window.HP = window.HP || {};
     ctx.fillStyle = rc[1]; ctx.fillText(rt, W / 2, 476);
 
     // 分数
-    ctx.font = '600 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.75)';
-    ctx.fillText('本局得分', W / 2, 560);
+    var ch = extra.chal;
+    if (ch && ch.target && !ch.vs) {
+      // 得分挑战：成功绿色、失败红色，一眼看出这局挑战过没有
+      ctx.font = '800 30px ' + FONT; ctx.fillStyle = ch.ok ? '#7dff9a' : '#ff8a6a';
+      ctx.fillText('本局挑战 ' + ch.target + ' 分 · ' + (ch.ok ? '挑战成功' : '挑战失败'), W / 2, 560);
+    } else {
+      ctx.font = '600 30px ' + FONT; ctx.fillStyle = 'rgba(255,240,220,0.75)';
+      ctx.fillText('本局得分', W / 2, 560);
+    }
     ctx.font = '900 96px ' + FONT; ctx.fillStyle = '#ffd35c';
     ctx.fillText(String(s.score), W / 2, 628);
     if (extra.stars != null) {

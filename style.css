@@ -457,6 +457,13 @@ body {
 .r-sum .r-score b { font-size: 30px; text-shadow: 0 2px 0 #7a1400; }
 .r-stars { font-size: 20px; color: #ffd35c; letter-spacing: 3px; }
 .r-stars small { display: block; font-size: 11px; letter-spacing: 0; color: rgba(255,240,220,0.75); }
+.r-chal { margin-top: 8px; padding: 8px 12px; border-radius: 14px; text-align: center; }
+.r-chal b { display: block; font-size: 20px; font-weight: 900; letter-spacing: 2px; }
+.r-chal span { display: block; margin-top: 1px; font-size: 13px; font-weight: 800; }
+.r-chal small { display: block; margin-top: 2px; font-size: 11px; opacity: 0.8; }
+.r-chal.ok { color: #10351c; background: linear-gradient(#b8ffc9, #4fcf74); }
+.r-chal.fail { color: #ffe2d6; background: linear-gradient(160deg, rgba(150,25,8,0.95), rgba(70,10,3,0.95)); border: 1px solid rgba(255,140,110,0.35); }
+.r-chal.hidden { display: none; }
 .invite { display: block; width: 100%; margin-top: 10px; padding: 12px 0; border-radius: 16px; font: inherit; font-size: 16px; font-weight: 900; color: #fff;
   background: linear-gradient(#ff5a6e, #e0203c); border: 0; box-shadow: 0 4px 0 #8a0f20, 0 8px 18px rgba(0,0,0,0.35); }
 .invite:active { transform: translateY(3px); box-shadow: 0 1px 0 #8a0f20; }

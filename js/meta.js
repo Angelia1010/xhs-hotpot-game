@@ -59,7 +59,9 @@ var HP = window.HP = window.HP || {};
       perfectBy: {}, ach: {}, streak: { last: 0, n: 0 }, daily: { day: 0, best: 0, plays: 0 }, lastPlayDay: 0, seen: {}, pots: ['jiugong'], pot: 'jiugong',
       stars: {}, cardStars: {}, bond: {}, moments: [], bondSeen: {},
       // 1.3：火锅日记第几天、今天推进了几天、补签卡、阵营、AI 锐评今天用了几次
-      day: 1, dayLog: { date: 0, n: 0 }, freeze: 0, faction: null, ai: { date: 0, n: 0 }
+      day: 1, dayLog: { date: 0, n: 0 }, freeze: 0, faction: null, ai: { date: 0, n: 0 },
+      // 1.4：每局得分挑战，按剧本 / 今日火锅 / 饭局夜分开记 { t 挑战次数, w 成功次数, fail 连续失败, last 最近 5 局分数 }
+      chal: {}
     };
   };
   /* 合并旧存档，缺的字段补默认值 */
@@ -84,6 +86,35 @@ var HP = window.HP = window.HP || {};
     p.rules = HP.RULES;
     p.v = 3;
     return p;
+  };
+
+  /* ---------- 每局得分挑战 ----------
+     第一次玩某个剧本：给一个大多数新人努力一下能到的分（机器人模拟里「手生」和「普通」玩家的中间）；
+     之后按最近 3 局平均分 ×1.1 往上抬；连着失败 2 次就降到 ×0.95，别让人一直卡着 */
+  HP.CHAL_BASE = { bros: 600, team: 550, date: 900, family: 500, solo: 750, rush: 700, night: 1650 };
+  HP.CHAL_DAY1 = 500;      // 火锅日记第 1 天（菜少、没人抢）
+  HP.CHAL_WIN_COINS = 30;  // 挑战成功奖励
+  function r50(x) { return Math.max(100, Math.round(x / 50) * 50); }
+  HP.chalTarget = function (p, key, scene) {
+    var base = key === 'night' ? HP.CHAL_BASE.night : (HP.CHAL_BASE[scene] || 600);
+    if (key === 'bros' && (p.day || 1) === 1) base = HP.CHAL_DAY1;
+    var c = (p.chal || {})[key];
+    if (!c || !c.last || !c.last.length) return r50(base);
+    var L = c.last.slice(-3), avg = L.reduce(function (a, b) { return a + b; }, 0) / L.length;
+    var k = (c.fail || 0) >= 2 ? 0.95 : 1.1;
+    return r50(Math.max(base * 0.6, avg * k));
+  };
+  /* 记一局挑战结果；vs：挑战码里对方的分数（要超过对方才算赢） */
+  HP.chalSettle = function (p, key, score, target, vs) {
+    var ok = vs != null ? score > vs : score >= target;
+    if (!key) return { ok: ok, coins: 0 };
+    p.chal = p.chal || {};
+    var c = p.chal[key] = p.chal[key] || { t: 0, w: 0, fail: 0, last: [] };
+    c.t++; if (ok) { c.w++; c.fail = 0; } else c.fail = (c.fail || 0) + 1;
+    c.last = (c.last || []).concat([score]).slice(-5);
+    var coins = ok ? HP.CHAL_WIN_COINS : 0;
+    p.coins += coins;
+    return { ok: ok, coins: coins, t: c.t, w: c.w };
   };
 
   /* ---------- 火锅日记：按天开放剧本、玩法和机制 ---------- */
